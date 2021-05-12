@@ -89,7 +89,7 @@ def main():
               0, 1, 1, 0, 0, 0, 0,
               0, 0, 1, 0, 0, 0, 0,
               0, 0, 0, 0, 1, 0, 0]
-    print(make_move(board1,board2,8))
+    print(make_move(board1,board2,4))
 
 if __name__ == "__main__":
     main()
