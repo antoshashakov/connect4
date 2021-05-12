@@ -22,13 +22,15 @@ def soft_max(arr1):
 
 
 # we need to be given the two boards and the model
-def desired_probabilities(board1, board2, model):
+def desired_probabilities(board1, board2, model, num_moves):
     # number of test games we will play
     trials = 100
     # the list storing the win/loss/draw stats
     stats = [0, 0, 0]
     # play the given number of games
     for i in range(trials):
+        # track the current number of moves to know when the game is a draw
+        curr_moves = num_moves
         # play until the game is finished
         while True:
             # get the probability distribution from the model
@@ -37,6 +39,7 @@ def desired_probabilities(board1, board2, model):
             column = pick_probability(prob_distribution)
             # make a move
             board1, board2, result = make_move(board1, board2, column)
+            curr_moves += 1
             # check if the game is over
             if result == 1:
                 stats[0] += 1
@@ -44,7 +47,7 @@ def desired_probabilities(board1, board2, model):
             if result == -1:
                 stats[1] += 1
                 break
-            if result == 2:  # TODO: currently assuming that a draw is represented by a 2
+            if result == 0 and curr_moves >= 42:
                 stats[2] += 1
                 break
             # if the game is still going, we now play as the other player (we swap the order of several things)
@@ -54,6 +57,7 @@ def desired_probabilities(board1, board2, model):
             column = pick_probability(prob_distribution)
             # make a move
             board2, board1, result = make_move(board2, board1, column)
+            curr_moves += 1
             # check if the game is over
             if result == 1:
                 stats[1] += 1
@@ -61,7 +65,7 @@ def desired_probabilities(board1, board2, model):
             if result == -1:
                 stats[0] += 1
                 break
-            if result == 2:  # TODO: currently assuming that a draw is represented by a 2
+            if result == 0 and curr_moves >= 42:
                 stats[2] += 1
                 break
     stats_arr = np.array(stats)
