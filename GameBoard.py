@@ -16,11 +16,11 @@ class GameBoard:
             self.pieces = rand.randrange(1, 42)
 
         print("Placing " + str(self.pieces) + " pieces!")
-        for i in range(0, self.pieces): # simulating each player taking turns placing pieces at random
-            self.placePieces(i % 2)
+        for i in range(0, self.pieces):  # simulating each player taking turns placing pieces at random
+            self.placeRandPieces(i % 2)
 
     # functions for piece placement
-    def placePieces(self, boardNum):
+    def placeRandPieces(self, boardNum):
         positionsTried = []
         while True:
             row = rand.randrange(0, 6)
@@ -78,8 +78,13 @@ class GameBoard:
     def getBoards(self):
         return self.gameBoards[0], self.gameBoards[1]
 
+    def make_move(self, boardNum, Col):
+        # Thinh's "make_move" function goes here
+        pass
+
 
 # the following lines are examples of how to use a GameBoard object
 g = GameBoard(-1)
 print(g)  # returns a graphical version of the current GameBoard object
 print(g.getBoards()[0])  # returns player1's board
+# g.make_move((PlayerNum-1), col) This will the the way that both a our neural network, and a player make moves, make_move already has access to both boards through the self indicator here
