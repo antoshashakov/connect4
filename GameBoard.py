@@ -6,14 +6,16 @@ class GameBoard:
     # initialization of a game board
     # if a random amount of moves should be done, pass -1 as an argument
     def __init__(self, pieces):
-        self.pieces = pieces
+        self.pieces = pieces  # instance variable for how many pieces are on the board
+        if pieces == -1:
+            self.pieces = 2*rand.randrange(1, 21)
 
         #                  row 1           row 2          row 3          row 4          row 5          row 6
         self.gameBoards = [[0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0],  # board for player 1
                            [0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0],  # board for player 2
                            [1,1,1,1,1,1,1, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0]]  # board of currently placeable positions
-        if pieces == -1:
-            self.pieces = 2*rand.randrange(1, 21)
+
+        self.playerTurn = self.pieces % 2  # instance variable for which player will place a piece next
 
         print("Placing " + str(self.pieces) + " pieces!")
         for i in range(0, self.pieces):  # simulating each player taking turns placing pieces at random
@@ -73,9 +75,14 @@ class GameBoard:
         s = ""
         for row in range(5, -1, -1):
             s += "Row" + str(row + 1)
-            for col in range(0, 7):
-                s += " " + self.numToLetter(self.gameBoards[0][7*row + col] + 2*self.gameBoards[1][7*row + col])
-            s += "\n"
+            if self.playerTurn == 0:
+                for col in range(0, 7):
+                    s += " " + self.numToLetter(self.gameBoards[0][7*row + col] + 2*self.gameBoards[1][7*row + col])
+                s += "\n"
+            if self.playerTurn == 1:
+                for col in range(0, 7):
+                    s += " " + self.numToLetter(self.gameBoards[1][7*row + col] + 2*self.gameBoards[0][7*row + col])
+                s += "\n"
         return s
 
     def numToLetter(self, num):
@@ -88,7 +95,13 @@ class GameBoard:
 
     # function for getting the boards of player 1 and player 2
     def getBoards(self):
-        return self.gameBoards[0], self.gameBoards[1]
+        return self.gameBoards[0], self.gameBoards[1], self.gameBoards[2]
+
+    def getPieces(self):
+        return self.pieces
+
+    def getPlayerTurn(self):
+        return self.playerTurn
 
     def make_move(self, column):
         # Thinh's "make_move" function goes here
@@ -97,12 +110,19 @@ class GameBoard:
         if 1 <= column <= 7:
             if self.level_check(self.gameBoards[0], self.gameBoards[1], column) == 6:
                 return self.gameBoards[0], self.gameBoards[1], -1
+
             if self.level_check(self.gameBoards[0], self.gameBoards[1], column) < 6:
                 self.board_change(self.gameBoards[0], (self.level_check(self.gameBoards[0], self.gameBoards[1], column) + 1, column))
+                self.pieces += 1
+                self.playerTurn = self.pieces % 2
+
             if self.is_win(self.gameBoards[0]):
                 return self.gameBoards[0], self.gameBoards[1], 1
+
             else:
+                self.gameBoards[0], self.gameBoards[1] = self.gameBoards[1], self.gameBoards[0]
                 return self.gameBoards[0], self.gameBoards[1], 0
+
         else:
             return self.gameBoards[0], self.gameBoards[1], -1
 
@@ -176,5 +196,5 @@ class GameBoard:
 g = GameBoard(-1)
 print(g)  # returns a graphical version of the current GameBoard object
 print(g.getBoards()[0])  # returns player1's board
-g.make_move(6) # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
+g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
 print(g)
