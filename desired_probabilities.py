@@ -3,69 +3,61 @@ import numpy as np
 import random
 
 
-# TODO: update method to work with newer version of board class
-# we need to be given the board, the model, and the number of moves
-def desired_probabilities(base_board, model, num_moves):
+# we need to be given the board, and the model
+def desired_probabilities(base_board, model):
     # number of test games we will play
     trials = 100
     # the list storing the win/loss/draw stats
     stats = [0, 0, 0]
+    # index of player we want the stats for
+    player = base_board.playerTurn
+
     # play the given number of games
     for i in range(trials):
         # make a copy of the board that we will modify
         board = base_board.copy()
-        # track the current number of moves to know when the game is a draw
-        curr_moves = num_moves
-        # play until the game is finished
-        while True:
-            # get the probability distribution from the model
-            prob_distribution = soft_max(model.predict(board))
-            # pick a column at random using the helper function
-            column = pick_probability(prob_distribution)
-            # make a move
-            board1, board2, result = board.make_move(column)
-            curr_moves += 1
-            # check if the game is over
-            if result == 1:
-                stats[0] += 1
-                break
-            if result == -1:
-                stats[1] += 1
-                break
-            if result == 0 and curr_moves >= 42:
-                stats[2] += 1
-                break
-            # if the game is still going, we now play as the other player (we swap the order of several things)
-            # get the probability distribution from the model
-            prob_distribution = soft_max(model.predict(board2, board1))
-            # pick a column at random using the helper function
-            column = pick_probability(prob_distribution)
-            # make a move
-            board2, board1, result = make_move(board2, board1, column)
-            curr_moves += 1
-            # check if the game is over
-            if result == 1:
-                stats[1] += 1
-                break
-            if result == -1:
-                stats[0] += 1
-                break
-            if result == 0 and curr_moves >= 42:
-                stats[2] += 1
-                break
+        # play until the game is finished - continually alternating b/w the two players
+        result = 0
+        while result == 0 and board.pieces < 42:
+            result = play_next_move(board, model)
+        # Update stats after a given game is completed
+        update_stats(player, stats, result, board.playerTurn)
+
+    # At this point, we have all our stats
     stats_arr = np.array(stats)
     return soft_max(stats_arr)
 
 
 # HELPER FUNCTIONS:
 
+# Plays next move given the current board, using the trained model. Returns flag from make_move
+def play_next_move(board, model):
+    # get the probability distribution from the model
+    prob_distribution = soft_max(model.predict(board))
+    # pick a column at random using the helper function
+    column = pick_probability(prob_distribution)
+    # make a move
+    _, _, result = board.make_move(column)
+    return result
+
+
+# For a given game played to completion, we update stats relative to our starting player
+def update_stats(player, stats, result, player_turn):
+    # Various checks to see whether our player won, lost, or draw
+    if result == 0:
+        stats[2] += 1
+    elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
+        stats[0] += 1
+    else:
+        stats[1] += 1
+
+
 # expects an array of real numbers
 def soft_max(arr1):
     # create a list and fill it with exponentiated values from the original array
     exponentials = [math.exp(i) for i in arr1]
     # sum the values in the list to divide
-    total = 0
-    [total := total + i for i in exponentials]
+    total = sum(exponentials)
     # get percentages by dividing each number in percentages by the total so they all sum to 1
     percentages = [i / total for i in exponentials]
     # returns percentages in array form
