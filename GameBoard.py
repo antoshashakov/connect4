@@ -20,28 +20,30 @@ class GameBoard:
         print("Placing " + str(self.pieces) + " pieces!")
         for i in range(0, self.pieces):  # simulating each player taking turns placing pieces at random
             self.placeRandPieces(i % 2)
+        self.playerTurn = self.pieces % 2
+        print("Managed to place " + str(self.pieces) + " pieces")
 
     # functions for piece placement
     def placeRandPieces(self, boardNum):
-        positionsTried = []
-        while True:
+        for i in range(0, 15):  # 9 is arbitrary here, a high value will ensure less "missed" pieces
             col = rand.randrange(0, 7)
 
-            if col in positionsTried:
-                continue  # if we have already tried this position, we don't want to waste time trying it again
-            else:
-                positionsTried.append(col)
+            if self.validMove(col):
+                row = self.rowFinder(col)
 
-            if self.validMove(col) and not (self.winningMove(col, boardNum)):
-                row = self.positionFinder(col)
+                tempBoard = self.gameBoards[boardNum].copy()  # temporary board to use is.win with without altering the original board
+                tempBoard[7*row + col] = 1
 
-                self.gameBoards[boardNum][7*row + col] = 1
-                self.gameBoards[2][7*row + col] = 0
+                if not(self.is_win(tempBoard)):
+                    self.gameBoards[boardNum][7*row + col] = 1
+                    self.gameBoards[2][7*row + col] = 0
 
-                if not(row == 5):
-                    self.gameBoards[2][7*(row+1) + col] = 1
-
-                return
+                    if not(row == 5):
+                        self.gameBoards[2][7*(row+1) + col] = 1
+                    return
+        print("could not place a piece")
+        self.pieces -= 1
+        return
 
     # checks to see if there is an open slot in the given row of a connect4 board
     def validMove(self, col):
@@ -55,6 +57,7 @@ class GameBoard:
 
         # check for horizontal win
 
+
         # check for vertical win
 
         # check for diagonal win
@@ -62,7 +65,11 @@ class GameBoard:
         return False
 
     # recovers the position of the next empty slot in a column
-    def positionFinder(self, col):
+    # use this if you want want to find which row in a column is currently placeable
+    def rowFinder(self, col):
+        if (col < 0) or (col > 6):
+            return None
+
         row = 0
         for i in range(0, 6):
             if self.gameBoards[2][7*i + col] == 1:
@@ -102,6 +109,8 @@ class GameBoard:
 
     def getPlayerTurn(self):
         return self.playerTurn
+
+# make_move function below here
 
     def make_move(self, column):
         # Thinh's "make_move" function goes here
@@ -192,9 +201,13 @@ class GameBoard:
         return False
 
 
-# the following lines are examples of how to use a GameBoard object
-g = GameBoard(-1)
+# the following lines are examples of how to use a GameBoard object, uncomment and run to see the see functionality of GameBoard objects
+g = GameBoard(-1)  # creates a GameBoard object with a random amount of pieces on the board
 print(g)  # returns a graphical version of the current GameBoard object
-print(g.getBoards()[0])  # returns player1's board
-g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
-print(g)
+# print(g.getBoards()[0])  # returns player1's board
+# print(g.getBoards()[1])  # returns platyer2's board
+# print(g.getBoards()[2])  # returns a board of currently placeable positions
+# print(g.rowFinder(3))  # take a column as an argument and returns the row that a piece would go to if you placed it in the given column
+# g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
+# print("There are " + str(g.getPieces()) + " pieces on the board")
+# print(g)
