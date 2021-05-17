@@ -3,8 +3,36 @@ import numpy as np
 import random
 
 
-# we need to be given the board, and the model
+# create seven bins, one for each column, and compute the desired probabilities for each based on their likelihood
 def desired_probabilities(base_board, model):
+    # keep track of the results from each column to later form percentage odds
+    stats = [0, 0, 0, 0, 0, 0, 0]
+    # for each number 1 to 7, we play a move in that column and determine how useful that move is
+    for i in range(1, 8):
+        # copy the board to not harm the original
+        board = base_board.copy()
+        # make a move in the column
+        _, _, result = board.make_move(i)
+        # adjust the stats based on the result of that move, either the immediate result or the value for future games
+        if result == 1:
+            # if the game was immediately won, we have a 100% win rate in that column
+            stats[i - 1] = 1
+        elif result == -1:
+            # if the game was immediately lost, we have a 100% loss rate in that column
+            stats[i - 1] = -1
+        elif board.pieces >= 42:
+            # if that move brought us to 42 moves, we have a draw in that column
+            stats[i - 1] = 0
+        elif result == 0:
+            # if the game did not end after the last move, get the board position value
+            stats[i - 1] = board_value(board, model)
+    # return soft max of the results
+    return soft_max(np.array(stats))
+
+
+# returns the "value" of a given board position (corresponds to the likelihood of winning from that position)
+# we need to be given the board, and the model
+def board_value(base_board, model):
     # number of test games we will play
     trials = 100
     # the list storing the win/loss/draw stats
@@ -23,9 +51,8 @@ def desired_probabilities(base_board, model):
         # Update stats after a given game is completed
         update_stats(player, stats, result, board.playerTurn)
 
-    # At this point, we have all our stats
-    stats_arr = np.array(stats)
-    return soft_max(stats_arr)
+    # At this point, we have all our stats, and we return the "value" of the move
+    return (stats[0] - stats[1]) / trials
 
 
 # HELPER FUNCTIONS:
