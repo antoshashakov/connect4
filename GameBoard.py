@@ -8,12 +8,16 @@ class GameBoard:
     def __init__(self, pieces):
         self.pieces = pieces  # instance variable for how many pieces are on the board
         if pieces == -1:
-            self.pieces = 2*rand.randrange(1, 21)
+            self.pieces = 2 * rand.randrange(1, 21)
 
         #                  row 1           row 2          row 3          row 4          row 5          row 6
-        self.gameBoards = [[0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0],  # board for player 1
-                           [0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0],  # board for player 2
-                           [1,1,1,1,1,1,1, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0]]  # board of currently placeable positions
+        self.gameBoards = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0],  # board for player 1
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0],  # board for player 2
+            [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0]]  # board of currently placeable positions
 
         self.playerTurn = self.pieces % 2  # instance variable for which player will place a piece next
 
@@ -31,15 +35,16 @@ class GameBoard:
             if self.validMove(col):
                 row = self.rowFinder(col)
 
-                tempBoard = self.gameBoards[boardNum].copy()  # temporary board to use is.win with without altering the original board
-                tempBoard[7*row + col] = 1
+                tempBoard = self.gameBoards[
+                    boardNum].copy()  # temporary board to use is.win with without altering the original board
+                tempBoard[7 * row + col] = 1
 
-                if not(self.is_win(tempBoard)):
-                    self.gameBoards[boardNum][7*row + col] = 1
-                    self.gameBoards[2][7*row + col] = 0
+                if not (self.is_win(tempBoard)):
+                    self.gameBoards[boardNum][7 * row + col] = 1
+                    self.gameBoards[2][7 * row + col] = 0
 
-                    if not(row == 5):
-                        self.gameBoards[2][7*(row+1) + col] = 1
+                    if not (row == 5):
+                        self.gameBoards[2][7 * (row + 1) + col] = 1
                     return
         print("could not place a piece")
         self.pieces -= 1
@@ -48,7 +53,7 @@ class GameBoard:
     # checks to see if there is an open slot in the given row of a connect4 board
     def validMove(self, col):
         for i in range(0, 6):
-            if self.gameBoards[2][7*i + col] == 1:
+            if self.gameBoards[2][7 * i + col] == 1:
                 return True
 
         return False
@@ -56,7 +61,6 @@ class GameBoard:
     def winningMove(self, col, boardNum):
 
         # check for horizontal win
-
 
         # check for vertical win
 
@@ -72,7 +76,7 @@ class GameBoard:
 
         row = 0
         for i in range(0, 6):
-            if self.gameBoards[2][7*i + col] == 1:
+            if self.gameBoards[2][7 * i + col] == 1:
                 row = i
 
         return row
@@ -84,11 +88,13 @@ class GameBoard:
             s += "Row" + str(row + 1)
             if self.playerTurn == 0:
                 for col in range(0, 7):
-                    s += " " + self.numToLetter(self.gameBoards[0][7*row + col] + 2*self.gameBoards[1][7*row + col])
+                    s += " " + self.numToLetter(
+                        self.gameBoards[0][7 * row + col] + 2 * self.gameBoards[1][7 * row + col])
                 s += "\n"
             if self.playerTurn == 1:
                 for col in range(0, 7):
-                    s += " " + self.numToLetter(self.gameBoards[1][7*row + col] + 2*self.gameBoards[0][7*row + col])
+                    s += " " + self.numToLetter(
+                        self.gameBoards[1][7 * row + col] + 2 * self.gameBoards[0][7 * row + col])
                 s += "\n"
         return s
 
@@ -110,65 +116,36 @@ class GameBoard:
     def getPlayerTurn(self):
         return self.playerTurn
 
-# make_move function below here
+    # make_move function below here
 
-    def make_move(self, column):
+    def make_move(self, col):
         # Thinh's "make_move" function goes here
         # Take in 2 boards, and the column player 1 wants to place the disc,
         # and return 2 new boards, and a flag (1 for win move, -1 for invalid move, 0 otherwise)
-        if 1 <= column <= 7:
-            if self.level_check(self.gameBoards[0], self.gameBoards[1], column) == 6:
+        if 1 <= col <= 7:
+            if not(self.validMove(col-1)):
                 return self.gameBoards[0], self.gameBoards[1], -1
-
-            if self.level_check(self.gameBoards[0], self.gameBoards[1], column) < 6:
-                self.board_change(self.gameBoards[0], (self.level_check(self.gameBoards[0], self.gameBoards[1], column) + 1, column))
+            else:
+                row = self.rowFinder(col-1)
+                self.gameBoards[0][7 * row + col-1] = 1
+                self.gameBoards[2][7 * row + col-1] = 0
                 self.pieces += 1
                 self.playerTurn = self.pieces % 2
-
-            if self.is_win(self.gameBoards[0]):
-                return self.gameBoards[0], self.gameBoards[1], 1
-
-            else:
+                if not (row == 5):
+                    self.gameBoards[2][7 * (row + 1) + col-1] = 1
                 self.gameBoards[0], self.gameBoards[1] = self.gameBoards[1], self.gameBoards[0]
-                return self.gameBoards[0], self.gameBoards[1], 0
-
-        else:
-            return self.gameBoards[0], self.gameBoards[1], -1
-
-    def board_change(self, board, position):
-        # Place a dic to a position with given board input and tuple for position
-        if 1 <= position[0] <= 6 and 1 <= position[1] <= 7:
-            board[7 * (position[0] - 1) + position[1] - 1] = 1
+                if self.is_win(self.gameBoards[1]):
+                    return self.gameBoards[0], self.gameBoards[1], 1
+                else:
+                    return self.gameBoards[0], self.gameBoards[1], 0
+        return self.gameBoards[0], self.gameBoards[1], -1
 
     def board_value(self, board, position):
         # Take in a board(list) and a tuple (k,s) where k is the level and s is the column,
         # and return the value of the board at that position (-1 if given invalid position)
         if 1 <= position[0] <= 6 and 1 <= position[1] <= 7:
             return board[7 * (position[0] - 1) + position[1] - 1]
-        else:
-            return -1
-
-    def level_check(self, board1, board2, column):
-        # Take in 2 boards and a column, return the current level of the column (-1 if given invalid column)
-        if 1 <= column <= 7:
-            b1 = [self.board_value(board1, (k, column)) for k in range(6, 0, -1)]
-            b2 = [self.board_value(board2, (k, column)) for k in range(6, 0, -1)]
-            try:
-                pos1 = 6 - b1.index(1)
-            except ValueError:
-                pos1 = 0
-            try:
-                pos2 = 6 - b2.index(1)
-            except ValueError:
-                pos2 = 0
-            if pos1 == 6 or pos2 == 6:
-                return 6
-            if pos1 >= pos2:
-                return pos1
-            else:
-                return pos2
-        else:
-            return -1
+        return -1
 
     def has_4_in_a_line(self, line):
         # Check if there are four consecutive 1's on a line (list)
@@ -210,4 +187,4 @@ print(g)  # returns a graphical version of the current GameBoard object
 # print(g.rowFinder(3))  # take a column as an argument and returns the row that a piece would go to if you placed it in the given column
 # g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
 # print("There are " + str(g.getPieces()) + " pieces on the board")
-# print(g)
+
