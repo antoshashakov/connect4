@@ -1,4 +1,5 @@
 import random as rand
+from copy import deepcopy
 
 
 class GameBoard:
@@ -11,13 +12,9 @@ class GameBoard:
             self.pieces = 2 * rand.randrange(1, 21)
 
         #                  row 1           row 2          row 3          row 4          row 5          row 6
-        self.gameBoards = [
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 0],  # board for player 1
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 0],  # board for player 2
-            [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 0]]  # board of currently placeable positions
+        self.gameBoards = [[0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0],  # board for player 1
+                           [0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0],  # board for player 2
+                           [1,1,1,1,1,1,1, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0, 0,0,0,0,0,0,0]]  # board of currently placeable positions
 
         self.playerTurn = self.pieces % 2  # instance variable for which player will place a piece next
 
@@ -35,8 +32,7 @@ class GameBoard:
             if self.validMove(col):
                 row = self.rowFinder(col)
 
-                tempBoard = self.gameBoards[
-                    boardNum].copy()  # temporary board to use is.win with without altering the original board
+                tempBoard = self.gameBoards[boardNum].copy()  # temporary board to use is.win with without altering the original board
                 tempBoard[7 * row + col] = 1
 
                 if not (self.is_win(tempBoard)):
@@ -110,6 +106,10 @@ class GameBoard:
     def getBoards(self):
         return self.gameBoards[0], self.gameBoards[1], self.gameBoards[2]
 
+    # returns a copy of GameBoard object
+    def copy(self):
+        return deepcopy(self)
+
     def getPieces(self):
         return self.pieces
 
@@ -181,10 +181,16 @@ class GameBoard:
 # the following lines are examples of how to use a GameBoard object, uncomment and run to see the see functionality of GameBoard objects
 g = GameBoard(-1)  # creates a GameBoard object with a random amount of pieces on the board
 print(g)  # returns a graphical version of the current GameBoard object
-# print(g.getBoards()[0])  # returns player1's board
-# print(g.getBoards()[1])  # returns platyer2's board
+# print(g.getBoards()[0])  # returns the game board of the next player to place a piece
+# print(g.getBoards()[1])  # returns the game board of the last player to place a piece
 # print(g.getBoards()[2])  # returns a board of currently placeable positions
 # print(g.rowFinder(3))  # take a column as an argument and returns the row that a piece would go to if you placed it in the given column
 # g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
+# print(g.copy()[0])  # returns a copy of gameBoard 0, which corresponds to the board that the next piece will be placed on
 # print("There are " + str(g.getPieces()) + " pieces on the board")
-
+t = g.copy()
+t.make_move(3)
+print("printing copy of original gameboard")
+print(t)
+print("printing original gameboard")
+print(g)
