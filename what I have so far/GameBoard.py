@@ -1,7 +1,6 @@
 import random as rand
 import math
 import copy
-import importlib
 import tensorflow as tf
 import numpy as np
 
@@ -101,7 +100,7 @@ class GameBoard:
 
     # function for getting the boards of player 1 and player 2
     def getBoards(self):
-        return self.gameBoards[0], self.gameBoards[1], self.gameBoards[2]
+        return [self.gameBoards[0], self.gameBoards[1], self.gameBoards[2]]
 
     def getPieces(self):
         return self.pieces
@@ -226,7 +225,8 @@ class GameBoard:
     # Plays next move given the current board, using the trained model. Returns flag from make_move
     def play_next_move(self, model):
         # get the probability distribution from the model
-        prob_distribution = soft_max(model.predict(self))
+        trainer = tf.constant([(self.getBoards()[0]) + (self.getBoards()[1]) + (self.getBoards()[2])])
+        prob_distribution = model.predict(trainer)[0]
         # pick a column at random using the helper function
         column = pick_probability(prob_distribution)
         # make a move
@@ -236,47 +236,42 @@ class GameBoard:
 
 # For a given game played to completion, we update stats relative to our starting player
 def update_stats(player, stats, result, player_turn):
-        # Various checks to see whether our player won, lost, or draw
-        if result == 0:
-            stats[2] += 1
-        elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
-            stats[0] += 1
-        else:
-            stats[1] += 1
+    # Various checks to see whether our player won, lost, or draw
+    if result == 0:
+        stats[2] += 1
+    elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
+        stats[0] += 1
+    else:
+        stats[1] += 1
 
-
-#expects an array of real numbers
-# def soft_max(arr1):
-#         # create a list and fill it with exponentiated values from the original array
-#         exponentials = [math.exp(i) for i in arr1]
-#         # sum the values in the list to divide
-#         total = sum(exponentials)
-#         # get percentages by dividing each number in percentages by the total so they all sum to 1
-#         percentages = [i / total for i in exponentials]
-#         # returns percentages in array form
-#         return np.array(percentages)
 
 def soft_max(arr1):
-    arr1
-    e = np.exp(arr1)
-    return e / e.sum()
+    # create a list and fill it with exponentiated values from the original array
+    exponentials = [math.exp(i) for i in arr1]
+    # sum the values in the list to divide
+    total = sum(exponentials)
+    # get percentages by dividing each number in percentages by the total so they all sum to 1
+    percentages = [i / total for i in exponentials]
+    # returns percentages in array form
+    return np.array(percentages)
+
 
 
 # expects arr1 to represent a set of percentage chances (it should be composed of positive real numbers with a sum of 1)
 def pick_probability(arr1):
-        # generate a random number from 0 to 1
-        r = random.random()
-        # total to keep track of the range we will check
-        total = 0
-        # we check if our number is in the range from 0 to the first probability, then between the first and second,
-        # and so on, until we have done so for all values in the array
-        for i in range(len(arr1)):
-            total += arr1[i]
-            if r <= total:
-                return i + 1
-        # if the above fails, we will choose the last result
-        # we return the index of the probability array that was chosen, plus one so that we start counting from 1
-        return len(arr1) + 1
+    # generate a random number from 0 to 1
+    r = rand.random()
+    # total to keep track of the range we will check
+    total = 0
+    # we check if our number is in the range from 0 to the first probability, then between the first and second,
+    # and so on, until we have done so for all values in the array
+    for i in range(len(arr1)):
+        total += arr1[i]
+        if r <= total:
+            return i + 1
+    # if the above fails, we will choose the last result
+    # we return the index of the probability array that was chosen, plus one so that we start counting from 1
+    return len(arr1) + 1
 
 
 # def model():
