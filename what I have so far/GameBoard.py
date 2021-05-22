@@ -202,7 +202,7 @@ class GameBoard:
         # number of test games we will play
         trials = 100
         # the list storing the win/loss/draw stats
-        stats = [0, 0, 0]
+        stats = [0, 0]
         # index of player we want the stats for
         player = self.playerTurn
 
@@ -238,7 +238,7 @@ class GameBoard:
 def update_stats(player, stats, result, player_turn):
     # Various checks to see whether our player won, lost, or draw
     if result == 0:
-        stats[2] += 1
+        pass # do nothing
     elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
         stats[0] += 1
     else:
