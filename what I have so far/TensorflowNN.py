@@ -1,31 +1,26 @@
 import tensorflow as tf
 import importlib
-import math
-import numpy as np
 
-
-g_board = importlib.import_module('GameBoard') #Karl, Thinh
-
-negloglik = lambda y, p_y: -p_y.log_prob(y) #log_likelihood custom
+g_board = importlib.import_module('GameBoard')  # Karl, Thinh
 
 model = tf.keras.models.Sequential()
 model.add(tf.keras.layers.Dense(1000, input_dim=126, activation='sigmoid'))
 model.add(tf.keras.layers.Dense(7, activation='softmax'))
 
-model.compile(loss=negloglik, metrics='accuracy')
-
-g = g_board.GameBoard(-1)
-training_data = tf.constant([g.getBoards()[0] + g.getBoards()[1] + g.getBoards()[2]])
-print(training_data)
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 
-target_data = tf.constant([g.desired_probabilities(model)])
-print(target_data)
+def init_data():
+    training_data = []
+    target_data = []
+    for i in range(0, 3):  # number of boards to be generated in our database
+        g = g_board.GameBoard(-1)
+        training_data = training_data + [g.getBoards()[0] + g.getBoards()[1] + g.getBoards()[2]]
+        target_data = target_data + [g.desired_probabilities(model)]
+    return tf.constant(training_data), tf.constant(target_data)
 
-history = model.fit(training_data, target_data, epochs=10, verbose=2)
 
-
-print(model.predict(training_data))
+history = model.fit(init_data()[0], init_data()[1], epochs=1, verbose=2)
 
 
 
