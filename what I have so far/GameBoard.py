@@ -183,10 +183,10 @@ class GameBoard:
             # adjust the stats based on the result of that move, either the immediate result or the value for future games
             if result == 1:
                 # if the game was immediately won, we have a 100% win rate in that column
-                stats[i - 1] = 1
+                stats[i - 1] = 3
             elif result == -1:
                 # if the game was immediately lost, we have a 100% loss rate in that column
-                stats[i - 1] = -1
+                stats[i - 1] = -3
             elif board.pieces >= 42:
                 # if that move brought us to 42 moves, we have a draw in that column
                 stats[i - 1] = 0
