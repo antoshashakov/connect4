@@ -7,7 +7,7 @@ model = tf.keras.models.Sequential()
 model.add(tf.keras.layers.Dense(1000, input_dim=126, activation='sigmoid'))
 model.add(tf.keras.layers.Dense(7, activation='softmax'))
 
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics='accuracy')
 
 
 def init_data():
