@@ -12,7 +12,7 @@ def desired_probabilities(base_board, model):
         # copy the board to not harm the original
         board = base_board.copy()
         # make a move in the column
-        _, _, result = board.make_move(i)
+        result = board.make_move(i)
         # adjust the stats based on the result of that move, either the immediate result or the value for future games
         if result == 1:
             # if the game was immediately won, we have a 100% win rate in that column
@@ -36,7 +36,7 @@ def board_value(base_board, model):
     # number of test games we will play
     trials = 100
     # the list storing the win/loss/draw stats
-    stats = [0, 0, 0]
+    stats = [0, 0]
     # index of player we want the stats for
     player = base_board.playerTurn
 
@@ -60,11 +60,12 @@ def board_value(base_board, model):
 # Plays next move given the current board, using the trained model. Returns flag from make_move
 def play_next_move(board, model):
     # get the probability distribution from the model
-    prob_distribution = soft_max(model.predict(board))
+    trainer = tf.constant([(self.getBoards()[0]) + (self.getBoards()[1]) + (self.getBoards()[2])])
+    prob_distribution = model.predict(trainer)[0]
     # pick a column at random using the helper function
     column = pick_probability(prob_distribution)
     # make a move
-    _, _, result = board.make_move(column)
+    result = board.make_move(column)
     return result
 
 
@@ -72,7 +73,7 @@ def play_next_move(board, model):
 def update_stats(player, stats, result, player_turn):
     # Various checks to see whether our player won, lost, or draw
     if result == 0:
-        stats[2] += 1
+        pass # do nothing
     elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
         stats[0] += 1
     else:
