@@ -124,7 +124,7 @@ class GameBoard:
         # and return 2 new boards, and a flag (1 for win move, -1 for invalid move, 0 otherwise)
         if 1 <= col <= 7:
             if not(self.validMove(col-1)):
-                return self.gameBoards[0], self.gameBoards[1], -1
+                return -1
             else:
                 row = self.rowFinder(col-1)
                 self.gameBoards[0][7 * row + col-1] = 1
@@ -135,10 +135,10 @@ class GameBoard:
                     self.gameBoards[2][7 * (row + 1) + col-1] = 1
                 self.gameBoards[0], self.gameBoards[1] = self.gameBoards[1], self.gameBoards[0]
                 if self.is_win(self.gameBoards[1]):
-                    return self.gameBoards[0], self.gameBoards[1], 1
+                    return 1
                 else:
-                    return self.gameBoards[0], self.gameBoards[1], 0
-        return self.gameBoards[0], self.gameBoards[1], -1
+                    return 0
+        return -1
 
     def board_value(self, board, position):
         # Take in a board(list) and a tuple (k,s) where k is the level and s is the column,
