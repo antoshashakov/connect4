@@ -116,7 +116,7 @@ class GameBoard:
         # and return 2 new boards, and a flag (1 for win move, -1 for invalid move, 0 otherwise)
         if 1 <= col <= 7:
             if not(self.validMove(col-1)):
-                return self.gameBoards[0], self.gameBoards[1], -1
+                return -1
             else:
                 row = self.rowFinder(col-1)
                 self.gameBoards[0][7 * row + col-1] = 1
@@ -127,10 +127,10 @@ class GameBoard:
                     self.gameBoards[2][7 * (row + 1) + col-1] = 1
                 self.gameBoards[0], self.gameBoards[1] = self.gameBoards[1], self.gameBoards[0]
                 if self.is_win(self.gameBoards[1]):
-                    return self.gameBoards[0], self.gameBoards[1], 1
+                    return 1
                 else:
-                    return self.gameBoards[0], self.gameBoards[1], 0
-        return self.gameBoards[0], self.gameBoards[1], -1
+                    return 0
+        return -1
 
     def board_value(self, board, position):
         # Take in a board(list) and a tuple (k,s) where k is the level and s is the column,
@@ -179,7 +179,7 @@ class GameBoard:
             # copy the board to not harm the original
             board = copy.deepcopy(self)
             # make a move in the column
-            _, _, result = board.make_move(i)
+            result = board.make_move(i)
             # adjust the stats based on the result of that move, either the immediate result or the value for future games
             if result == 1:
                 # if the game was immediately won, we have a 100% win rate in that column
@@ -201,7 +201,9 @@ class GameBoard:
     def board_score(self, model):
         # number of test games we will play
         trials = 100
-        # the list storing the win/loss/draw stats
+        # the maximum number of moves we will try (used to reduce runtime); a limit of 42 is effectively equivalent to no limit
+        move_limit = 42
+        # the list storing the win/loss stats
         stats = [0, 0]
         # index of player we want the stats for
         player = self.playerTurn
@@ -210,12 +212,14 @@ class GameBoard:
         for i in range(trials):
             # make a copy of the board that we will modify
             board = copy.deepcopy(self)
+            # keep track of the initial number of pieces
+            starting_pieces = board.pieces
             # play until the game is finished - continually alternating b/w the two players
             result = 0
-            while result == 0 and board.pieces < 42:
+            while result == 0 and board.pieces < 42 and board.pieces < starting_pieces + move_limit:
                 result = board.play_next_move(model)
             # Update stats after a given game is completed
-            update_stats(player, stats, result, board.playerTurn)
+            update_stats(player, stats, result, board.playerTurn, starting_pieces + move_limit)
 
         # At this point, we have all our stats, and we return the "value" of the move
         return (stats[0] - stats[1]) / trials
@@ -230,19 +234,18 @@ class GameBoard:
         # pick a column at random using the helper function
         column = pick_probability(prob_distribution)
         # make a move
-        _, _, result = self.make_move(column)
+        result = self.make_move(column)
         return result
 
-
-# For a given game played to completion, we update stats relative to our starting player
-def update_stats(player, stats, result, player_turn):
-    # Various checks to see whether our player won, lost, or draw
-    if result == 0:
-        pass # do nothing
-    elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
-        stats[0] += 1
-    else:
-        stats[1] += 1
+    # For a given game played to completion, we update stats relative to our starting player
+    def update_stats(self, player, stats, result, player_turn, piece_limit):
+        # Various checks to see whether our player won, lost, or draw
+        if result == 0 and (self.pieces >= 42 or self.pieces >= piece_limit):
+            pass # do nothing
+        elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
+            stats[0] += 1
+        else:
+            stats[1] += 1
 
 
 def soft_max(arr1):
