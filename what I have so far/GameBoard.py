@@ -288,3 +288,27 @@ def pick_probability(arr1):
 def pick_probability_alternate(arr1):
     # numpy choice method chooses from 0 to 6 based on probability distribution of arr1
     return np.random.choice(7, None, False, arr1) + 1
+
+def get_training_data(set_size, model):
+    training_data = []
+    global tr_array
+    tr_array = np.array([])
+    for i in range(0, set_size):
+        g = GameBoard(-1)
+        print(g)
+        tr_array = np.append(tr_array, g)
+        train = [g.getBoards()[0] + g.getBoards()[1] + g.getBoards()[2]]
+        training_data = training_data + train
+        print("predicted_probabilities")
+        print(model.predict(train))
+    return tf.constant(training_data)
+
+
+def get_target_data(array, model):
+    target_data = []
+    for i in range(0, len(array)):
+        des = [array[i].desired_probabilities(model)]
+        print("desired_probabilities")
+        print(des)
+        target_data = target_data + des
+    return tf.constant(target_data)
