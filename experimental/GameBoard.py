@@ -199,10 +199,10 @@ class GameBoard:
     # we need to be given the board, and the model
     def board_score(self, model):
         # number of test games we will play
-        trials = 100
+        trials = 10
         # the maximum number of moves we will try (used to reduce runtime)
         # a limit of 42 is effectively equivalent to no limit
-        move_limit = 42
+        move_limit = 6
         # keep track of the number of pieces we will be allowed to see placed before giving up
         piece_limit = self.pieces + move_limit
         # if this number manages to be greater than 42, cap it at 42
@@ -227,6 +227,8 @@ class GameBoard:
         # at this point, we have all our stats, and we return the "score" of the move
         return (stats[0] - stats[1]) / trials
 
+    # HELPER FUNCTIONS:
+
     # plays next move given the current board, using the trained model. Returns flag from make_move
     def play_next_move(self, model):
         # get the probability distribution from the model
@@ -238,15 +240,96 @@ class GameBoard:
         result = self.make_move(column)
         return result
 
+    def desired_probabilities_2(self, model):
+        # number of games we will test
+        trials = 10
+        # the maximum number of moves (42 <=> no limit)
+        move_limit = 6
+        # all of the many boards that we will work with
+        board_list = []
+        # keep track of starting player
+        player = self.playerTurn
+        # the overall stats for each of the seven initial moves
+        results = [0 for i in range(7)]
+        # keep track of which of the seven initial moves immediately ended the game
+        finished_upper = [False for i in range(7)]
+        # the stats of the random games; 2D, to track wins and losses for each
+        stats = [[0, 0] for i in range(7)]
+        # keep track of which boards no longer need to be played on (0 is unfinished, 1 is finished)
+        finished_lower = [False for i in range(trials * 7)]
+        # for each number 1 to 7, we play a move in that column and determine how useful that move is
+        for i in range(7):
+            # copy the board to not harm the original
+            board = copy.deepcopy(self)
+            # make a move in the column
+            result = board.make_move(i + 1)
+            # check if the game will continue
+            if result == 0 and board.pieces < 42:
+                pass  # do nothing
+            # otherwise, mark the now finished boards
+            else:
+                # mark this initial move as finished
+                finished_upper[i] = True
+                # adjust the stats based on the result of the move if applicable
+                if result == 1:
+                    # if the game was immediately won, we have a 100% win rate in that column
+                    results[i] = 3
+                elif result == -1:
+                    # if the game was immediately lost, we have a 100% loss rate in that column
+                    results[i] = -3
+            # copy this board into the main boards list a number of times equal to trials
+            for k in range(trials):
+                board_list.append(copy.deepcopy(board))
+        # repeat as many moves as we are allowed
+        for i in range(move_limit):
+            # store all of the raw board outputs to be fed to the model
+            board_data = []
+            # concatenate all of these as one large tensor
+            for b in board_list:
+                b_output = b.getBoards()
+                board_data.append(np.array(b_output[0] + b_output[1] + b_output[2]))
+            # feed the data to the model and get our output
+            move_data = model(np.stack(board_data), training=False)
+            # flag to track if we have exceeded 42 moves
+            past_limit = False
+            # for each board...
+            for k in range(7 * trials):
+                # check if the board is already done
+                if finished_lower[k] or finished_upper[k // trials]:
+                    continue  # this board is finished and we skip it
+                # pick a column to play based on model output
+                col = pick_probability(move_data[k])
+                # store the result of playing in the column
+                result = board_list[k].make_move(col)
+                # track the result and mark a finished board as finished
+                if (result == 1 and board_list[k].playerTurn == player) or (result == -1 and board_list[k].playerTurn != player):
+                    stats[k // trials][0] += 1
+                    finished_lower[k] = True
+                if (result == 1 and board_list[k].playerTurn != player) or (result == -1 and board_list[k].playerTurn == player):
+                    stats[k // trials][1] += 1
+                    finished_lower[k] = True
+                if board_list[k].getPieces() >= 42:
+                    finished_lower[k] = True
+                    past_limit = True
+            # since all boards are filled at the same rate, if one has passed the limit, they all have, and we are done
+            if past_limit:
+                break
+        # for the boards that did not immediately finish, calculate their score
+        for i in range(7):
+            if not finished_upper[i]:
+                results[i] = (stats[i][0] - stats[i][1]) / trials
+        # softmax the score and return
+        return soft_max(np.array(results))
+
     # For a given game played to completion, we update stats relative to our starting player
     def update_stats(self, player, stats, result, player_turn, piece_limit):
         # Various checks to see whether our player won, lost, or draw
         if result == 0 and (self.pieces >= 42 or self.pieces >= piece_limit):
             pass  # do nothing
         elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
-            stats[0] += 1
-        else:
             stats[1] += 1
+        else:
+            stats[0] += 1
 
 
 def soft_max(arr1):
@@ -254,17 +337,6 @@ def soft_max(arr1):
     e = np.exp(arr1)
     # divide the array by the sum of its values
     return e / np.sum(e)
-
-
-def soft_max_old(arr1):
-    # create a list and fill it with exponentiated values from the original array
-    exponentials = [math.exp(i) for i in arr1]
-    # sum the values in the list to divide
-    total = sum(exponentials)
-    # get percentages by dividing each number in percentages by the total so they all sum to 1
-    percentages = [i / total for i in exponentials]
-    # returns percentages in array form
-    return np.array(percentages)
 
 
 # expects arr1 to represent a set of percentage chances (it should be composed of positive real numbers with a sum of 1)
@@ -283,12 +355,6 @@ def pick_probability(arr1):
     # we return the index of the probability array that was chosen, plus one so that we start counting from 1
     return len(arr1) + 1
 
-
-# a simpler version of the pick_probability code, but one that runs significantly slower
-def pick_probability_alternate(arr1):
-    # numpy choice method chooses from 0 to 6 based on probability distribution of arr1
-    return np.random.choice(7, None, False, arr1) + 1
-
 def get_training_data(set_size, model):
     training_data = []
     global tr_array
@@ -299,8 +365,8 @@ def get_training_data(set_size, model):
         tr_array = np.append(tr_array, g)
         train = [g.getBoards()[0] + g.getBoards()[1] + g.getBoards()[2]]
         training_data = training_data + train
-        print("predicted_probabilities")
-        print(model.predict(train))
+        # print("predicted_probabilities")
+        # print(model.predict(train))
     return tf.constant(training_data)
 
 
@@ -312,3 +378,14 @@ def get_target_data(array, model):
         print(des)
         target_data = target_data + des
     return tf.constant(target_data)
+
+# # the following lines are examples of how to use a GameBoard object, uncomment and run to see the see functionality of GameBoard objects
+# print(g.copy())
+# # creates a GameBoard object with a random amount of pieces on the board
+# print(g)  # returns a graphical version of the current GameBoard object
+# print(g.getBoards()[0])  # returns player1's board
+# print(g.getBoards()[1])  # returns platyer2's board
+# print(g.getBoards()[2])  # returns a board of currently placeable positions
+# print(g.rowFinder(3))  # take a column as an argument and returns the row that a piece would go to if you placed it in the given column
+# g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
+# print("There are " + str(g.getPieces()) + " pieces on the board")
