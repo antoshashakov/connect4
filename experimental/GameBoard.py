@@ -9,7 +9,7 @@ class GameBoard:
 
     # initialization of a game board
     # if a random amount of moves should be done, pass -1 as an argument
-    def __init__(self, pieces):
+    def __init__(self, pieces=-1):
         self.pieces = pieces  # instance variable for how many pieces are on the board
         if pieces == -1:
             self.pieces = 2 * rand.randrange(1, 21)
@@ -244,7 +244,7 @@ class GameBoard:
         # number of games we will test
         trials = 10
         # the maximum number of moves (42 <=> no limit)
-        move_limit = 6
+        move_limit = 42 - self.pieces
         # all of the many boards that we will work with
         board_list = []
         # keep track of starting player
@@ -252,11 +252,11 @@ class GameBoard:
         # the overall stats for each of the seven initial moves
         results = [0 for i in range(7)]
         # keep track of which of the seven initial moves immediately ended the game
-        finished_upper = [False for i in range(7)]
+        immediate_end = [False for i in range(7)]
         # the stats of the random games; 2D, to track wins and losses for each
         stats = [[0, 0] for i in range(7)]
-        # keep track of which boards no longer need to be played on (0 is unfinished, 1 is finished)
-        finished_lower = [False for i in range(trials * 7)]
+        # keep track of which boards no longer need to be played on
+        finished = [False for i in range(trials * 7)]
         # for each number 1 to 7, we play a move in that column and determine how useful that move is
         for i in range(7):
             # copy the board to not harm the original
@@ -269,7 +269,10 @@ class GameBoard:
             # otherwise, mark the now finished boards
             else:
                 # mark this initial move as finished
-                finished_upper[i] = True
+                immediate_end[i] = True
+                # mark each of the trials for this bin as finished
+                for j in range(trials):
+                    finished[i*trials + j] = True
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
@@ -290,12 +293,10 @@ class GameBoard:
                 board_data.append(np.array(b_output[0] + b_output[1] + b_output[2]))
             # feed the data to the model and get our output
             move_data = model(np.stack(board_data), training=False)
-            # flag to track if we have exceeded 42 moves
-            past_limit = False
             # for each board...
             for k in range(7 * trials):
                 # check if the board is already done
-                if finished_lower[k] or finished_upper[k // trials]:
+                if finished[k]:
                     continue  # this board is finished and we skip it
                 # pick a column to play based on model output
                 col = pick_probability(move_data[k])
@@ -304,19 +305,18 @@ class GameBoard:
                 # track the result and mark a finished board as finished
                 if (result == 1 and board_list[k].playerTurn == player) or (result == -1 and board_list[k].playerTurn != player):
                     stats[k // trials][0] += 1
-                    finished_lower[k] = True
+                    finished[k] = True
                 if (result == 1 and board_list[k].playerTurn != player) or (result == -1 and board_list[k].playerTurn == player):
                     stats[k // trials][1] += 1
-                    finished_lower[k] = True
+                    finished[k] = True
                 if board_list[k].getPieces() >= 42:
-                    finished_lower[k] = True
-                    past_limit = True
-            # since all boards are filled at the same rate, if one has passed the limit, they all have, and we are done
-            if past_limit:
+                    finished[k] = True
+            # check to see if all boards are now finished, in which case we end
+            if all_true(finished):
                 break
         # for the boards that did not immediately finish, calculate their score
         for i in range(7):
-            if not finished_upper[i]:
+            if not immediate_end[i]:
                 results[i] = (stats[i][0] - stats[i][1]) / trials
         # softmax the score and return
         return soft_max(np.array(results))
@@ -355,12 +355,22 @@ def pick_probability(arr1):
     # we return the index of the probability array that was chosen, plus one so that we start counting from 1
     return len(arr1) + 1
 
+
+# expects a list / array of boolean values, checks if entirely true values
+# used to help determine if all of the games are finished in desired_probabilities
+def all_true(arr):
+    for e in arr:
+        if not e:
+            return False
+    return True
+
+
 def get_training_data(set_size, model):
     training_data = []
     global tr_array
     tr_array = np.array([])
     for i in range(0, set_size):
-        g = GameBoard(-1)
+        g = GameBoard()
         print(g)
         tr_array = np.append(tr_array, g)
         train = [g.getBoards()[0] + g.getBoards()[1] + g.getBoards()[2]]
@@ -373,7 +383,7 @@ def get_training_data(set_size, model):
 def get_target_data(array, model):
     target_data = []
     for i in range(0, len(array)):
-        des = [array[i].desired_probabilities(model)]
+        des = [array[i].desired_probabilities_2(model)]
         print("desired_probabilities")
         print(des)
         target_data = target_data + des
