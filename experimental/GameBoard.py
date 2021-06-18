@@ -9,27 +9,41 @@ class GameBoard:
 
     # initialization of a game board
     # if a random amount of moves should be done, pass -1 as an argument
-    def __init__(self, pieces=-1):
-        self.pieces = pieces  # instance variable for how many pieces are on the board
-        if pieces == -1:
-            self.pieces = 2 * rand.randrange(1, 21)
+    # def __init__(self, pieces=-1):
+    #     self.pieces = pieces  # instance variable for how many pieces are on the board
+    #     if pieces == -1:
+    #         self.pieces = 2 * rand.randrange(1, 21)
+    #
+    #     #                  row 1           row 2          row 3          row 4          row 5          row 6
+    #     self.gameBoards = [
+    #         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    #          0, 0, 0, 0, 0, 0],  # board for player 1
+    #         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    #          0, 0, 0, 0, 0, 0],  # board for player 2
+    #         [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    #          0, 0, 0, 0, 0, 0]]  # board of currently placeable positions
+    #
+    #     self.playerTurn = self.pieces % 2  # instance variable for which player will place a piece next
+    #
+    #     print("Placing " + str(self.pieces) + " pieces!")
+    #     for i in range(0, self.pieces):  # simulating each player taking turns placing pieces at random
+    #         self.placeRandPieces(i % 2)
+    #     self.playerTurn = self.pieces % 2
+    #     print("Managed to place " + str(self.pieces) + " pieces")
 
-        #                  row 1           row 2          row 3          row 4          row 5          row 6
-        self.gameBoards = [
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 0],  # board for player 1
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 0],  # board for player 2
-            [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-             0, 0, 0, 0, 0, 0]]  # board of currently placeable positions
-
-        self.playerTurn = self.pieces % 2  # instance variable for which player will place a piece next
-
-        print("Placing " + str(self.pieces) + " pieces!")
-        for i in range(0, self.pieces):  # simulating each player taking turns placing pieces at random
-            self.placeRandPieces(i % 2)
-        self.playerTurn = self.pieces % 2
-        print("Managed to place " + str(self.pieces) + " pieces")
+    def __init__(self, pieces=-1, game_boards=None):
+        if game_boards is not None:
+            self.gameBoards = game_boards
+            self.pieces = count_pieces(self.gameBoards)
+            self.playerTurn = self.pieces % 2
+        else:
+            if pieces == -1:
+                self.pieces = 2 * rand.randrange(1, 21)
+            self.gameBoards = [[0 for i in range(42)], [0 for i in range(42)], [(1 if i < 7 else 0) for i in range(42)]]
+            self.playerTurn = self.pieces % 2
+            for i in range(self.pieces):
+                self.placeRandPieces(i % 2)
+            self.playerTurn = self.pieces % 2
 
     # functions for piece placement
     def placeRandPieces(self, boardNum):
@@ -240,11 +254,14 @@ class GameBoard:
         result = self.make_move(column)
         return result
 
+    def copy(self):
+        return GameBoard(self.getPieces(), self.gameBoards.copy())
+
     def desired_probabilities_2(self, model):
         # number of games we will test
         trials = 10
         # the maximum number of moves (42 <=> no limit)
-        move_limit = 42 - self.pieces
+        move_limit = 41 - self.pieces  # TODO
         # all of the many boards that we will work with
         board_list = []
         # keep track of starting player
@@ -272,7 +289,7 @@ class GameBoard:
                 immediate_end[i] = True
                 # mark each of the trials for this bin as finished
                 for j in range(trials):
-                    finished[i*trials + j] = True
+                    finished[i * trials + j] = True
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
@@ -303,10 +320,12 @@ class GameBoard:
                 # store the result of playing in the column
                 result = board_list[k].make_move(col)
                 # track the result and mark a finished board as finished
-                if (result == 1 and board_list[k].playerTurn == player) or (result == -1 and board_list[k].playerTurn != player):
+                if (result == 1 and board_list[k].playerTurn == player) or (
+                        result == -1 and board_list[k].playerTurn != player):
                     stats[k // trials][0] += 1
                     finished[k] = True
-                if (result == 1 and board_list[k].playerTurn != player) or (result == -1 and board_list[k].playerTurn == player):
+                if (result == 1 and board_list[k].playerTurn != player) or (
+                        result == -1 and board_list[k].playerTurn == player):
                     stats[k // trials][1] += 1
                     finished[k] = True
                 if board_list[k].getPieces() >= 42:
@@ -363,6 +382,19 @@ def all_true(arr):
         if not e:
             return False
     return True
+
+
+# expects a list of three lists of length 42, representing the boards of a connect4 game
+# returns the number of pieces by counting digit 1 in first two boards
+def count_pieces(boards):
+    piece_count = 0
+    for i in boards[0]:
+        if i == 1:
+            piece_count += 1
+    for i in boards[1]:
+        if i == 1:
+            piece_count += 1
+    return piece_count
 
 
 def get_training_data(set_size, model):
