@@ -32,20 +32,42 @@ class GameBoard:
     #     print("Managed to place " + str(self.pieces) + " pieces")
 
     def __init__(self, pieces=-1, game_boards=None):
+
+        # Case for when we pass a board
         if game_boards is not None:
             self.gameBoards = game_boards
             self.pieces = count_pieces(self.gameBoards)
             self.playerTurn = self.pieces % 2
+
+        # case for when there is no board already
         else:
+            # sets pieces to a random amount if -1 is entered
             if pieces == -1:
-                self.pieces = 2 * rand.randrange(1, 21)
-            self.gameBoards = [[0 for i in range(42)], [0 for i in range(42)], [(1 if i < 7 else 0) for i in range(42)]]
-            self.playerTurn = self.pieces % 2
+                self.pieces = rand.randrange(0, 42)
+            # otherwise sets pieces to pieces
+            else:
+                self.pieces = pieces
+
+            self.gameBoards = [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0],  # board for player 1
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0],  # board for player 2
+                [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0]]  # board of currently placeable positions
+
+            # simulating a random game where some amount of moves are played and now one has won yet
+            print("Placing " + str(self.pieces) + " pieces!")
             for i in range(self.pieces):
                 self.placeRandPieces(i % 2)
-            self.playerTurn = self.pieces % 2
+
+            self.playerTurn = self.pieces % 2  # instance variable for which player will place a piece next
+
+            print("Managed to place " + str(self.pieces) + " pieces")
 
     # functions for piece placement
+    # simulates a random game with self.pieces amount of pieces on the board
+    # never returns a game with 4 in a row already
     def placeRandPieces(self, boardNum):
         for i in range(0, 15):  # 9 is arbitrary here, a high value will ensure less "missed" pieces
             col = rand.randrange(0, 7)
@@ -53,8 +75,7 @@ class GameBoard:
             if self.validMove(col):
                 row = self.rowFinder(col)
 
-                tempBoard = self.gameBoards[
-                    boardNum].copy()  # temporary board to use is.win with without altering the original board
+                tempBoard = self.gameBoards[boardNum].copy()  # temporary board to use is.win with without altering the original board
                 tempBoard[7 * row + col] = 1
 
                 if not (self.is_win(tempBoard)):
@@ -76,31 +97,31 @@ class GameBoard:
 
         return False
 
+    # expects a integer 0 <= col <= 6 which represents a column
+    # returns the height at which a piece would land if placed in that column
     def rowFinder(self, col):
         if (col < 0) or (col > 6):
             return None
 
-        row = 0
+        row = -1  # if this value does not change
         for i in range(0, 6):
             if self.gameBoards[2][7 * i + col] == 1:
                 row = i
 
         return row
 
-    #  function for printing the current game board
+    # returns a basic graphical representation of a GameBoard
     def __str__(self):
         s = ""
         for row in range(5, -1, -1):
             s += "Row" + str(row + 1)
             if self.playerTurn == 0:
                 for col in range(0, 7):
-                    s += " " + self.numToLetter(
-                        self.gameBoards[0][7 * row + col] + 2 * self.gameBoards[1][7 * row + col])
+                    s += " " + self.numToLetter(self.gameBoards[0][7 * row + col] + 2 * self.gameBoards[1][7 * row + col])
                 s += "\n"
             if self.playerTurn == 1:
                 for col in range(0, 7):
-                    s += " " + self.numToLetter(
-                        self.gameBoards[1][7 * row + col] + 2 * self.gameBoards[0][7 * row + col])
+                    s += " " + self.numToLetter(self.gameBoards[1][7 * row + col] + 2 * self.gameBoards[0][7 * row + col])
                 s += "\n"
         return s
 
@@ -123,7 +144,6 @@ class GameBoard:
         return self.playerTurn
 
     # make_move function below here
-
     def make_move(self, col):
         # Thinh's "make_move" function goes here
         # Take in 2 boards, and the column player 1 wants to place the disc,
@@ -216,7 +236,7 @@ class GameBoard:
         trials = 10
         # the maximum number of moves we will try (used to reduce runtime)
         # a limit of 42 is effectively equivalent to no limit
-        move_limit = 6
+        move_limit = 42 - self.pieces
         # keep track of the number of pieces we will be allowed to see placed before giving up
         piece_limit = self.pieces + move_limit
         # if this number manages to be greater than 42, cap it at 42
@@ -261,7 +281,7 @@ class GameBoard:
         # number of games we will test
         trials = 10
         # the maximum number of moves (42 <=> no limit)
-        move_limit = 41 - self.pieces  # TODO
+        move_limit = 42 - self.pieces  # TODO
         # all of the many boards that we will work with
         board_list = []
         # keep track of starting player
@@ -310,6 +330,7 @@ class GameBoard:
                 board_data.append(np.array(b_output[0] + b_output[1] + b_output[2]))
             # feed the data to the model and get our output
             move_data = model(np.stack(board_data), training=False)
+
             # for each board...
             for k in range(7 * trials):
                 # check if the board is already done
@@ -397,11 +418,11 @@ def count_pieces(boards):
     return piece_count
 
 
-def get_training_data(set_size, model):
+def get_training_data(size, model):
     training_data = []
     global tr_array
     tr_array = np.array([])
-    for i in range(0, set_size):
+    for i in range(0, size):
         g = GameBoard()
         print(g)
         tr_array = np.append(tr_array, g)
@@ -424,10 +445,12 @@ def get_target_data(array, model):
 # # the following lines are examples of how to use a GameBoard object, uncomment and run to see the see functionality of GameBoard objects
 # print(g.copy())
 # # creates a GameBoard object with a random amount of pieces on the board
+# g = GameBoard(8)
 # print(g)  # returns a graphical version of the current GameBoard object
 # print(g.getBoards()[0])  # returns player1's board
 # print(g.getBoards()[1])  # returns platyer2's board
 # print(g.getBoards()[2])  # returns a board of currently placeable positions
-# print(g.rowFinder(3))  # take a column as an argument and returns the row that a piece would go to if you placed it in the given column
+# print(g.rowFinder(3))  # take a column as an argument and returns the row that a piece would go to if you placed it in the given column, a value of -1 means there is no valid space ine the column
 # g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
 # print("There are " + str(g.getPieces()) + " pieces on the board")
+# print(g)
