@@ -372,6 +372,99 @@ class GameBoard:
             stats[0] += 1
 
 
+def desired_probabilities_3(start_boards, model):
+    # the length of the input
+    length = len(start_boards)
+    # number of games we will test
+    trials = 10
+    # # the maximum number of moves (42 <=> no limit)
+    # move_limit = 41 - self.pieces  # TODO
+    # all of the many boards that we will work with
+    board_list = []
+    # keep track of starting player for each board
+    player = [b.playerTurn for b in start_boards]
+    # the overall stats for each of the seven initial moves for each of the initial boards
+    results = [[0 for i in range(7)] for b in start_boards]
+    # keep track of which of the seven initial moves immediately ended the game
+    immediate_end = [[False for i in range(7)] for b in start_boards]
+    # the stats of the random games; 2D, to track wins and losses for each
+    stats = [[[0, 0] for i in range(7)] for b in start_boards]
+    # keep track of which boards no longer need to be played on
+    finished = [False for i in range(trials * 7 * length)]
+    # for each of the starting boards...
+    board_index = 0
+    for b in start_boards:
+        # for each number 1 to 7, we play a move in that column and determine how useful that move is
+        for i in range(7):
+            # copy the board to not harm the original
+            board = copy.deepcopy(b)
+            # make a move in the column
+            result = board.make_move(i + 1)
+            # check if the game will continue
+            if result == 0 and board.pieces < 42:
+                pass  # do nothing
+            # otherwise, mark the now finished boards
+            else:
+                # mark this initial move as finished
+                immediate_end[board_index][i] = True
+                # mark each of the trials for this bin as finished
+                for j in range(trials):
+                    finished[(board_index * 7 * trials) + (i * trials) + j] = True
+                # adjust the stats based on the result of the move if applicable
+                if result == 1:
+                    # if the game was immediately won, we have a 100% win rate in that column
+                    results[board_index][i] = 3
+                elif result == -1:
+                    # if the game was immediately lost, we have a 100% loss rate in that column
+                    results[board_index][i] = -3
+            # copy this board into the main boards list a number of times equal to trials
+            for k in range(trials):
+                board_list.append(copy.deepcopy(board))
+        board_index += 1
+    # repeat as many moves as we are allowed
+    for i in range(42):
+        # store all of the raw board outputs to be fed to the model
+        board_data = []
+        # concatenate all of these as one large tensor
+        for b in board_list:
+            b_output = b.getBoards()
+            board_data.append(np.array(b_output[0] + b_output[1] + b_output[2]))
+        # feed the data to the model and get our output
+        move_data = model(np.stack(board_data), training=False)
+        # for each starting board...
+        for j in range(length):
+            # for each of its games...
+            for k in range(7 * trials):
+                # check if the board is already done
+                if finished[(j * trials * 7) + k]:
+                    continue  # this board is finished and we skip it
+                # pick a column to play based on model output
+                col = pick_probability(move_data[(j * trials * 7) + k])
+                # store the result of playing in the column
+                result = board_list[(j * trials * 7) + k].make_move(col)
+                # track the result and mark a finished board as finished
+                if (result == 1 and board_list[(j * trials * 7) + k].playerTurn == player[j]) or (
+                        result == -1 and board_list[(j * trials * 7) + k].playerTurn != player[j]):
+                    stats[j][k // trials][0] += 1
+                    finished[(j * trials * 7) + k] = True
+                if (result == 1 and board_list[(j * trials * 7) + k].playerTurn != player[j]) or (
+                        result == -1 and board_list[(j * trials * 7) + k].playerTurn == player[j]):
+                    stats[j][k // trials][1] += 1
+                    finished[(j * trials * 7) + k] = True
+                if board_list[(j * trials * 7) + k].getPieces() >= 42:
+                    finished[(j * trials * 7) + k] = True
+        # check to see if all boards are now finished, in which case we end
+        if all_true(finished):
+            break
+    # for the boards that did not immediately finish, calculate their score
+    for j in range(length):
+        for i in range(7):
+            if not immediate_end[j][i]:
+                results[j][i] = (stats[j][i][0] - stats[j][i][1]) / trials
+    # softmax the score and return
+    return [soft_max(results[i]) for i in range(length)]
+
+
 def soft_max(arr1):
     # exponentiate the array
     e = np.exp(arr1)
