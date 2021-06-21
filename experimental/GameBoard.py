@@ -511,39 +511,51 @@ def count_pieces(boards):
     return piece_count
 
 
-def get_training_data(size, model):
+# gives an array of random boards with the given size
+def get_samples(set_size):
+    boards = []
+    for i in range(set_size):
+        boards.append(GameBoard())
+    return np.array(boards)
+
+
+# gets the training data (the raw board lists) for a given set of sample boards
+def get_training_data(samples):
+    # the list
     training_data = []
-    global tr_array
-    tr_array = np.array([])
-    for i in range(0, size):
-        g = GameBoard()
-        print(g)
-        tr_array = np.append(tr_array, g)
-        train = [g.getBoards()[0] + g.getBoards()[1] + g.getBoards()[2]]
-        training_data = training_data + train
-        # print("predicted_probabilities")
-        # print(model.predict(train))
+    # iterate through the samples
+    for s in samples:
+        # add the boards
+        training_data += [s.getBoards()[0] + s.getBoards()[1] + s.getBoards()[2]]
+    # template and return
     return tf.constant(training_data)
 
 
-def get_target_data(array, model):
+# TODO: consider using desired_probabilities_3 on the whole list at once
+def get_target_data(samples, model):
     target_data = []
-    for i in range(0, len(array)):
-        des = [array[i].desired_probabilities_2(model)]
-        print("desired_probabilities")
-        print(des)
-        target_data = target_data + des
+    for s in samples:
+        target_data += [s.desired_probabilities_2(model)]
     return tf.constant(target_data)
 
-# # the following lines are examples of how to use a GameBoard object, uncomment and run to see the see functionality of GameBoard objects
-# print(g.copy())
-# # creates a GameBoard object with a random amount of pieces on the board
-# g = GameBoard(8)
-# print(g)  # returns a graphical version of the current GameBoard object
-# print(g.getBoards()[0])  # returns player1's board
-# print(g.getBoards()[1])  # returns platyer2's board
-# print(g.getBoards()[2])  # returns a board of currently placeable positions
-# print(g.rowFinder(3))  # take a column as an argument and returns the row that a piece would go to if you placed it in the given column, a value of -1 means there is no valid space ine the column
-# g.make_move(6)  # this is how our neural networks makes a move (specifically in this case placing a piece in column 6)
-# print("There are " + str(g.getPieces()) + " pieces on the board")
-# print(g)
+
+def evaluate(samples, model, full_report=False):
+    print("=" * 28, "SAMPLE EVALUATION", "=" * 28)
+    average_distance = 0
+    i = 0
+    for s in samples:
+        i += 1
+        board_data = [np.array(s.getBoards()[0] + s.getBoards()[1] + s.getBoards()[2])]
+        x = model(np.stack(board_data), training=False)
+        y = s.desired_probabilities_2(model)
+        distance = np.linalg.norm(x[0] - y)
+        average_distance += distance
+        if full_report:
+            print("-" * 33, "Board", i, "-" * 33)
+            print("Actual data:", x[0])
+            print("Target data:", y)
+            print("Euclidean distance between target and actual:", distance)
+    average_distance /= len(samples)
+    print(">>>>> Average euclidean distance:", average_distance, "<<<<<")
+    print()
+    print()
