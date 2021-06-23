@@ -33,3 +33,14 @@ for i in range(training_cycles):
     history = model.fit(training, target, verbose=2, batch_size=b_size, epochs=100)
     g_board.evaluate(eval_set, model, True)
 print(datetime.datetime.now() - begin_time)
+
+x = np.array([])
+for j in range(training_cycles + 1):
+    x = np.append(x, [j])
+
+print(g_board.avg_dist)
+plt.plot(x, g_board.avg_dist)
+plt.xlabel('training cycles')
+plt.ylabel('average euclidean distance')
+plt.title('performance')
+plt.show()
