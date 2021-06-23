@@ -5,6 +5,9 @@ import tensorflow as tf
 import numpy as np
 
 
+avg_dist = np.array([])
+
+
 class GameBoard:
 
     # initialization of a game board
@@ -541,6 +544,7 @@ def get_target_data(samples, model):
 
 
 def evaluate(samples, model, full_report=False):
+    global avg_dist
     print("=" * 28, "SAMPLE EVALUATION", "=" * 28)
     average_distance = 0
     i = 0
@@ -557,6 +561,8 @@ def evaluate(samples, model, full_report=False):
             print("Target data:", y)
             print("Euclidean distance between target and actual:", distance)
     average_distance /= len(samples)
+    avg_dist = np.append(avg_dist, [average_distance])
+    print(avg_dist)
     print(">>>>> Average euclidean distance:", average_distance, "<<<<<")
     print()
     print()
