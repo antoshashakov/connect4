@@ -516,6 +516,7 @@ def get_samples(set_size):
     boards = []
     for i in range(set_size):
         boards.append(GameBoard())
+        print(GameBoard())
     return np.array(boards)
 
 
