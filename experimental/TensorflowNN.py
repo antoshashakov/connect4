@@ -1,6 +1,7 @@
 import datetime
 import importlib
 import tensorflow as tf
+import numpy as np
 
 begin_time = datetime.datetime.now()
 print(datetime.datetime.now())
