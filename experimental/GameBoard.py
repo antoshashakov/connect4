@@ -1,8 +1,6 @@
 import random as rand
-import math
 import copy
 import tensorflow as tf
-import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -35,15 +33,38 @@ class GameBoard:
     #     self.playerTurn = self.pieces % 2
     #     print("Managed to place " + str(self.pieces) + " pieces")
 
-    def __init__(self, pieces=-1, game_boards=None):
+    def __init__(self, pieces=-1, game_boards=None, oneAwayFromWin=False):
+        self.foundWin = False
 
         # Case for when we pass a board
         if game_boards is not None:
             self.gameBoards = game_boards
             self.pieces = count_pieces(self.gameBoards)
             self.playerTurn = self.pieces % 2
+            return
 
-        # case for when there is no board already
+        self.gameBoards = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0],  # board for player 1
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0],  # board for player 2
+            [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0]]  # board of currently placeable positions
+
+        # case for creating a GameBoard that is one move away from a win
+        if oneAwayFromWin:
+
+            # plays a random game until we fail to place a piece
+            for i in range(42):
+                self.placeRandPieces(i % 2, oneAwayFromWin)
+
+                # if we are one move away from a win, stop placing pieces.
+                if self.foundWin:
+                    self.pieces = i
+                    self.playerTurn = self.pieces % 2
+                    return
+
+        # creating a random GameBoard
         else:
             # sets pieces to a random amount if -1 is entered
             if pieces == -1:
@@ -51,14 +72,6 @@ class GameBoard:
             # otherwise sets pieces to pieces
             else:
                 self.pieces = pieces
-
-            self.gameBoards = [
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                 0, 0, 0, 0, 0, 0],  # board for player 1
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                 0, 0, 0, 0, 0, 0],  # board for player 2
-                [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                 0, 0, 0, 0, 0, 0]]  # board of currently placeable positions
 
             # simulating a random game where some amount of moves are played and now one has won yet
             print("Placing " + str(self.pieces) + " pieces!")
@@ -69,11 +82,10 @@ class GameBoard:
 
             print("Managed to place " + str(self.pieces) + " pieces")
 
-    # functions for piece placement
-    # simulates a random game with self.pieces amount of pieces on the board
+    # simulates a random move
     # never returns a game with 4 in a row already
-    def placeRandPieces(self, boardNum):
-        for i in range(0, 15):  # 9 is arbitrary here, a high value will ensure less "missed" pieces
+    def placeRandPieces(self, boardNum, oneAwayFromWin=False):
+        for i in range(0, 15):  # 15 is arbitrary here, a high value will ensure less "missed" pieces
             col = rand.randrange(0, 7)
 
             if self.validMove(col):
@@ -82,13 +94,21 @@ class GameBoard:
                 tempBoard = self.gameBoards[boardNum].copy()  # temporary board to use is.win with without altering the original board
                 tempBoard[7 * row + col] = 1
 
+                # check to see if the move in question would win the game (which we don't want)
                 if not (self.is_win(tempBoard)):
                     self.gameBoards[boardNum][7 * row + col] = 1
                     self.gameBoards[2][7 * row + col] = 0
 
+                    # if we are not on the top row, do this
                     if not (row == 5):
                         self.gameBoards[2][7 * (row + 1) + col] = 1
                     return
+
+                # if we are generating a GameBoard that we want to be one move away from a move, we are done
+                if oneAwayFromWin:
+                    self.foundWin = True
+                    return
+
         print("could not place a piece")
         self.pieces -= 1
         return
@@ -107,7 +127,7 @@ class GameBoard:
         if (col < 0) or (col > 6):
             return None
 
-        row = -1  # if this value does not change
+        row = -1  # if this value does not change, we output -1 which indicates the given column is full
         for i in range(0, 6):
             if self.gameBoards[2][7 * i + col] == 1:
                 row = i
@@ -127,6 +147,9 @@ class GameBoard:
                 for col in range(0, 7):
                     s += " " + self.numToLetter(self.gameBoards[1][7 * row + col] + 2 * self.gameBoards[0][7 * row + col])
                 s += "\n"
+        s += "There are " + str(self.pieces) + " on this board" + "\n"
+        s += "The " + self.numToLetter(self.playerTurn + 1) + " will place the next piece" + "\n"
+
         return s
 
     def numToLetter(self, num):
@@ -520,7 +543,8 @@ def get_samples(set_size):
     boards = []
     for i in range(set_size):
         boards.append(GameBoard())
-        print(GameBoard())
+        print(boards[i])
+        # print(GameBoard())
     return np.array(boards)
 
 

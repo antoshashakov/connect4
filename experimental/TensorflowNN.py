@@ -2,9 +2,12 @@ import datetime
 import importlib
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 
 begin_time = datetime.datetime.now()
 print(datetime.datetime.now())
+
+# parameters for network architecture
 g_board = importlib.import_module('GameBoard')  # Karl, Thinh
 model = tf.keras.models.Sequential()
 model.add(tf.keras.layers.Dense(1000, input_dim=126, activation='sigmoid'))
@@ -14,8 +17,8 @@ model.compile(loss='categorical_crossentropy', optimizer='adam')
 
 testing = True
 
-set_size = 1000
-training_cycles = 10
+set_size = 500
+training_cycles = 100
 b_size = 100
 
 if testing:
@@ -24,16 +27,22 @@ if testing:
     b_size = 3
 
 eval_set = g_board.get_samples(10)
-g_board.evaluate(eval_set, model, True) #pre-training evaluation
+g_board.evaluate(eval_set, model, True)  # pre-training evaluation
 
-
+# training loop
 for i in range(training_cycles):
     boards = g_board.get_samples(set_size)
     training = g_board.get_training_data(boards)
     target = g_board.get_target_data(boards, model)
     history = model.fit(training, target, verbose=2, batch_size=b_size, epochs=100)
     g_board.evaluate(eval_set, model, True)
-print(datetime.datetime.now() - begin_time)
+
+print("Final training time: " + str(datetime.datetime.now() - begin_time))
+print("Current parameters:")
+print("set_size = " + str(set_size))
+print("training_cycles  = " + str(training_cycles))
+print("b_size = " + str(b_size))
+print("trials = 10" + "\n")  # change this manually for now
 
 x = np.array([])
 for j in range(training_cycles + 1):
