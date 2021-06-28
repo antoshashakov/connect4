@@ -340,10 +340,10 @@ class GameBoard:
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
-                    results[i] = 3
+                    results[i] = 10
                 elif result == -1:
                     # if the game was immediately lost, we have a 100% loss rate in that column
-                    results[i] = -3
+                    results[i] = -10
             # copy this board into the main boards list a number of times equal to trials
             for k in range(trials):
                 board_list.append(copy.deepcopy(board))
@@ -440,10 +440,10 @@ def desired_probabilities_3(start_boards, model):
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
-                    results[board_index][i] = 3
+                    results[board_index][i] = 10
                 elif result == -1:
                     # if the game was immediately lost, we have a 100% loss rate in that column
-                    results[board_index][i] = -3
+                    results[board_index][i] = -10
             # copy this board into the main boards list a number of times equal to trials
             for k in range(trials):
                 board_list.append(copy.deepcopy(board))
