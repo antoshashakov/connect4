@@ -4,9 +4,6 @@ import tensorflow as tf
 import numpy as np
 
 
-avg_dist = np.array([])
-
-
 class GameBoard:
 
     # initialization of a game board
@@ -91,7 +88,8 @@ class GameBoard:
             if self.validMove(col):
                 row = self.rowFinder(col)
 
-                tempBoard = self.gameBoards[boardNum].copy()  # temporary board to use is.win with without altering the original board
+                tempBoard = self.gameBoards[
+                    boardNum].copy()  # temporary board to use is.win with without altering the original board
                 tempBoard[7 * row + col] = 1
 
                 # check to see if the move in question would win the game (which we don't want)
@@ -138,17 +136,19 @@ class GameBoard:
     def __str__(self):
         s = ""
         for row in range(5, -1, -1):
-            s += "Row" + str(row + 1)
+            s += "[" + str(row + 1) + "]"
             if self.playerTurn == 0:
                 for col in range(0, 7):
-                    s += " " + self.numToLetter(self.gameBoards[0][7 * row + col] + 2 * self.gameBoards[1][7 * row + col])
+                    s += " " + self.numToLetter(
+                        self.gameBoards[0][7 * row + col] + 2 * self.gameBoards[1][7 * row + col])
                 s += "\n"
             if self.playerTurn == 1:
                 for col in range(0, 7):
-                    s += " " + self.numToLetter(self.gameBoards[1][7 * row + col] + 2 * self.gameBoards[0][7 * row + col])
+                    s += " " + self.numToLetter(
+                        self.gameBoards[1][7 * row + col] + 2 * self.gameBoards[0][7 * row + col])
                 s += "\n"
-        s += "There are " + str(self.pieces) + " on this board" + "\n"
-        s += "The " + self.numToLetter(self.playerTurn + 1) + " will place the next piece" + "\n"
+        s += "Number of pieces: " + str(self.pieces) + "\n"
+        s += "Next move: " + self.numToLetter(self.playerTurn + 1) + "\n"
 
         return s
 
@@ -156,9 +156,9 @@ class GameBoard:
         if num == 0:
             return "-"
         if num == 1:
-            return "R"
+            return "\33[91mR\33[0m"
         if num == 2:
-            return "B"
+            return "\33[94mB\33[0m"
 
     # function for getting the boards of player 1 and player 2
     def getBoards(self):
@@ -230,81 +230,7 @@ class GameBoard:
                 return True
         return False
 
-    # create seven bins, one for each column, and compute the desired probabilities for each based on their likelihood
     def desired_probabilities(self, model):
-        # keep track of the results from each column to later form percentage odds
-        stats = [0, 0, 0, 0, 0, 0, 0]
-        # for each number 1 to 7, we play a move in that column and determine how useful that move is
-        for i in range(1, 8):
-            # copy the board to not harm the original
-            board = copy.deepcopy(self)
-            # make a move in the column
-            result = board.make_move(i)
-            # adjust the stats based on the result of the move, either the immediate result or the score of future games
-            if result == 1:
-                # if the game was immediately won, we have a 100% win rate in that column
-                stats[i - 1] = 3
-            elif result == -1:
-                # if the game was immediately lost, we have a 100% loss rate in that column
-                stats[i - 1] = -3
-            elif board.pieces >= 42:
-                # if that move brought us to 42 moves, we have a draw in that column
-                stats[i - 1] = 0
-            elif result == 0:
-                # if the game did not end after the last move, get the board position value
-                stats[i - 1] = board.board_score(model)
-        # return soft max of the results
-        return soft_max(np.array(stats))
-
-    # returns the "value" of a given board position (corresponds to the likelihood of winning from that position)
-    # we need to be given the board, and the model
-    def board_score(self, model):
-        # number of test games we will play
-        trials = 10
-        # the maximum number of moves we will try (used to reduce runtime)
-        # a limit of 42 is effectively equivalent to no limit
-        move_limit = 42 - self.pieces
-        # keep track of the number of pieces we will be allowed to see placed before giving up
-        piece_limit = self.pieces + move_limit
-        # if this number manages to be greater than 42, cap it at 42
-        if piece_limit > 42:
-            piece_limit = 42
-        # the list storing the win/loss stats
-        stats = [0, 0]
-        # index of player we want the stats for
-        player = self.playerTurn
-
-        # play the given number of games
-        for i in range(trials):
-            # make a copy of the board that we will modify
-            board = copy.deepcopy(self)  # TODO: consider coding custom version with faster runtime
-            # play until the game is finished, either by win, loss, or overstepping the piece limit
-            result = 0
-            while result == 0 and board.pieces < piece_limit:
-                result = board.play_next_move(model)
-            # update stats after a given game is completed
-            board.update_stats(player, stats, result, board.playerTurn, piece_limit)
-
-        # at this point, we have all our stats, and we return the "score" of the move
-        return (stats[0] - stats[1]) / trials
-
-    # HELPER FUNCTIONS:
-
-    # plays next move given the current board, using the trained model. Returns flag from make_move
-    def play_next_move(self, model):
-        # get the probability distribution from the model
-        trainer = tf.constant([(self.getBoards()[0]) + (self.getBoards()[1]) + (self.getBoards()[2])])
-        prob_distribution = model.predict(trainer)[0]
-        # pick a column at random using the helper function
-        column = pick_probability(prob_distribution)
-        # make a move
-        result = self.make_move(column)
-        return result
-
-    def copy(self):
-        return GameBoard(self.getPieces(), self.gameBoards.copy())
-
-    def desired_probabilities_2(self, model):
         # number of games we will test
         trials = 10
         # the maximum number of moves (42 <=> no limit)
@@ -388,24 +314,12 @@ class GameBoard:
         # softmax the score and return
         return soft_max(np.array(results))
 
-    # For a given game played to completion, we update stats relative to our starting player
-    def update_stats(self, player, stats, result, player_turn, piece_limit):
-        # Various checks to see whether our player won, lost, or draw
-        if result == 0 and (self.pieces >= 42 or self.pieces >= piece_limit):
-            pass  # do nothing
-        elif (result == 1 and player == player_turn) or (result == -1 and player != player_turn):
-            stats[1] += 1
-        else:
-            stats[0] += 1
 
-
-def desired_probabilities_3(start_boards, model):
+def desired_probabilities_batch(start_boards, model):
     # the length of the input
     length = len(start_boards)
     # number of games we will test
     trials = 10
-    # # the maximum number of moves (42 <=> no limit)
-    # move_limit = 41 - self.pieces  # TODO
     # all of the many boards that we will work with
     board_list = []
     # keep track of starting player for each board
@@ -502,7 +416,9 @@ def soft_max(arr1):
 # expects arr1 to represent a set of percentage chances (it should be composed of positive real numbers with a sum of 1)
 def pick_probability(arr1):
     # generate a random number from 0 to 1
+    rand.seed(10)
     r = rand.random()
+    rand.seed()
     # total to keep track of the range we will check
     total = 0
     # we check if our number is in the range from 0 to the first probability, then between the first and second,
@@ -544,7 +460,6 @@ def get_samples(set_size):
     for i in range(set_size):
         boards.append(GameBoard())
         print(boards[i])
-        # print(GameBoard())
     return np.array(boards)
 
 
@@ -564,30 +479,61 @@ def get_training_data(samples):
 def get_target_data(samples, model):
     target_data = []
     for s in samples:
-        target_data += [s.desired_probabilities_2(model)]
+        target_data += [s.desired_probabilities(model)]
     return tf.constant(target_data)
 
 
-def evaluate(samples, model, full_report=False):
-    global avg_dist
-    print("=" * 28, "SAMPLE EVALUATION", "=" * 28)
-    average_distance = 0
-    i = 0
-    for s in samples:
-        i += 1
+# by default, returns the average euclidean distance between desired_probabilities and model output between the elements
+# different values of report_type cause different things to be printed IN ADDITION to returning the distance
+# report_type = 0 -> nothing is printed
+# report_type = 1 -> average distance is printed
+# report_type = 2 -> the distances for individual boards are printed (as well as average)
+# report_type = 3 -> the boards themselves and their vectors are printed (as well as all of the above)
+def evaluate(samples, model, report_type=0):
+    # print the title bar if appropriate
+    if report_type >= 1:
+        print("=" * 28, "SAMPLE EVALUATION", "=" * 28)
+        print()
+    # keep track of the distances to find the average
+    total_distance = 0
+    for i in range(len(samples)):
+        # get a the next board
+        s = samples[i]
+        # get the raw data; call the model
         board_data = [np.array(s.getBoards()[0] + s.getBoards()[1] + s.getBoards()[2])]
         x = model(np.stack(board_data), training=False)
-        y = s.desired_probabilities_2(model)
+        # get the desired probabilities
+        y = s.desired_probabilities(model)
+        # determine the Euclidean distance
         distance = np.linalg.norm(x[0] - y)
-        average_distance += distance
-        if full_report:
-            print("-" * 33, "Board", i, "-" * 33)
-            print("Actual data:", x[0])
-            print("Target data:", y)
-            print("Euclidean distance between target and actual:", distance)
-    average_distance /= len(samples)
-    avg_dist = np.append(avg_dist, [average_distance])
-    print(avg_dist)
-    print(">>>>> Average euclidean distance:", average_distance, "<<<<<")
-    print()
-    print()
+        # add it to the total (will be used for the average
+        total_distance += distance
+        # print the appropriate data
+        if report_type >= 2:
+            print("-" * 33, "Board", i+1, "-" * 33)
+            print()
+        if report_type >= 3:
+            print(samples[i])
+            print("Actual data:", vector_string(x[0]))
+            print("Target data:", vector_string(y))
+            print()
+        if report_type >= 2:
+            print("Euclidean distance between target and actual:", "{:.4f}".format(distance))
+            print()
+    # divide the total by the number of samples to get the average distance
+    average_distance = total_distance / len(samples)
+    # print the average if applicable
+    if report_type >= 1:
+        print("*"*20, "Average Euclidean distance:", "{:.4f}".format(average_distance), "*"*20)
+        print()
+    # return the average
+    return average_distance
+
+
+# converts an iterable object containing doubles into a slightly cleaner form
+def vector_string(vector):
+    s = "[ " + "{:.4f}".format(vector[0])
+    for i in range(1, len(vector)):
+        s += ", " + "{:.4f}".format(vector[i])
+    s += " ]"
+    return s
