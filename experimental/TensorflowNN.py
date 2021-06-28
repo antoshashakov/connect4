@@ -3,6 +3,8 @@ import importlib
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import GameBoard as gb
+import random as rand
 
 begin_time = datetime.datetime.now()
 print(datetime.datetime.now())
@@ -26,8 +28,13 @@ if testing:
     training_cycles = 5
     b_size = 3
 
+avg_dist = []
+
+# amount of detail the evaluation method should give; levels of depth explained above the function
+evaluation_depth = 1
+
 eval_set = g_board.get_samples(10)
-g_board.evaluate(eval_set, model, True)  # pre-training evaluation
+avg_dist.append(g_board.evaluate(eval_set, model, evaluation_depth))  # pre-training evaluation
 
 # training loop
 for i in range(training_cycles):
@@ -35,7 +42,7 @@ for i in range(training_cycles):
     training = g_board.get_training_data(boards)
     target = g_board.get_target_data(boards, model)
     history = model.fit(training, target, verbose=2, batch_size=b_size, epochs=100)
-    g_board.evaluate(eval_set, model, True)
+    avg_dist.append(g_board.evaluate(eval_set, model, evaluation_depth))
 
 print("Final training time: " + str(datetime.datetime.now() - begin_time))
 print("Current parameters:")
@@ -48,8 +55,8 @@ x = np.array([])
 for j in range(training_cycles + 1):
     x = np.append(x, [j])
 
-print(g_board.avg_dist)
-plt.plot(x, g_board.avg_dist)
+print(avg_dist)
+plt.plot(x, avg_dist)
 plt.xlabel('training cycles')
 plt.ylabel('average euclidean distance')
 plt.title('performance')
