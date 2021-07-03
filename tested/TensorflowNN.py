@@ -53,6 +53,8 @@ print("training_cycles  = " + str(training_cycles))
 print("b_size = " + str(b_size))
 print("trials = 10" + "\n")  # change this manually for now
 
+model.save('my_model')
+
 x = np.array([])
 for j in range(training_cycles + 1):
     x = np.append(x, [j])
