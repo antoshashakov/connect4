@@ -189,13 +189,13 @@ class GameBoard:
         # keep track of starting player
         player = self.player_turn
         # the overall stats for each of the seven initial moves
-        results = [float(0)] * 7
+        results = [float(0) for _ in range(7)]
         # keep track of which of the seven initial moves immediately ended the game
-        immediate_end = [False] * 7
+        immediate_end = [False for _ in range(7)]
         # the stats of the random games; 2D, to track wins and losses for each
-        stats = [[0, 0]] * 7
+        stats = [[0, 0] for _ in range(7)]
         # keep track of which boards no longer need to be played on
-        finished = [False] * (trials * 7)
+        finished = [False for _ in range(trials * 7)]
         # for each number 1 to 7, we play a move in that column and determine how useful that move is
         for i in range(7):
             # copy the board to not harm the original
@@ -275,17 +275,13 @@ def desired_probabilities_batch(start_boards, model):
     # keep track of starting player for each board
     player = [b.player_turn for b in start_boards]
     # the overall stats for each of the seven initial moves for each of the initial boards
-    # results = [[0 for i in range(7)] for b in start_boards]
-    results = [[float(0)] * 7] * len(start_boards)
+    results = [[float(0) for _ in range(7)] for _ in start_boards]
     # keep track of which of the seven initial moves immediately ended the game
-    # immediate_end = [[False for i in range(7)] for b in start_boards]
-    immediate_end = [[False] * 7] * len(start_boards)
+    immediate_end = [[False for _ in range(7)] for _ in start_boards]
     # the stats of the random games; 2D, to track wins and losses for each
-    # stats = [[[0, 0] for i in range(7)] for b in start_boards]
-    stats = [[[0, 0]] * 7] * len(start_boards)
+    stats = [[[0, 0] for _ in range(7)] for _ in start_boards]
     # keep track of which boards no longer need to be played on
-    # finished = [False for i in range(trials * 7 * length)]
-    finished = [False] * (trials * 7 * length)
+    finished = [False for _ in range(trials * 7 * length)]
     # for each of the starting boards...
     board_index = 0
     for b in start_boards:
@@ -373,9 +369,9 @@ def soft_max(arr1):
 # expects arr1 to represent a set of percentage chances (it should be composed of positive real numbers with a sum of 1)
 def pick_probability(arr1):
     # generate a random number from 0 to 1
-    # rand.seed(2.718281828459045)  # used for testing purposes
+    rand.seed(2.718281828459045)  # used for testing purposes
     r = rand.random()
-    rand.seed()
+    # rand.seed()
     # total to keep track of the range we will check
     total = 0
     # we check if our number is in the range from 0 to the first probability, then between the first and second,
