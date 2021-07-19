@@ -7,6 +7,10 @@ import numpy as np
 class GameBoard:
     # class-wide variable dictating whether debug print statements are called
     debug_messages = False
+    # number of trials used in the desired probabilities methods
+    game_trials = 10
+    # the "value" of instant win / loss in desired probabilities methods
+    instant_end_increment = 10
 
     # generates a board based on the given information
     # expects number of pieces (optional; default is random), board lists (optional),
@@ -181,7 +185,9 @@ class GameBoard:
     # expects a tensorflow neural network model with the correct input and output size and format
     def desired_probabilities(self, model):
         # number of games we will test
-        trials = 10
+        trials = GameBoard.game_trials
+        # large increment for instant win / loss
+        large_increment = GameBoard.instant_end_increment
         # the maximum number of moves (42 <=> no limit)
         move_limit = 42 - self.pieces
         # all of the many boards that we will work with
@@ -215,10 +221,10 @@ class GameBoard:
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
-                    results[i] = 10
+                    results[i] = large_increment
                 elif result == -1:
                     # if the game was immediately lost, we have a 100% loss rate in that column
-                    results[i] = -10
+                    results[i] = -large_increment
             # copy this board into the main boards list a number of times equal to trials
             for k in range(trials):
                 board_list.append(copy.deepcopy(board))
@@ -269,7 +275,9 @@ def desired_probabilities_batch(start_boards, model):
     # the length of the input
     length = len(start_boards)
     # number of games we will test
-    trials = 10
+    trials = GameBoard.game_trials
+    # large increment for instant win / loss
+    large_increment = GameBoard.instant_end_increment
     # all of the many boards that we will work with
     board_list = []
     # keep track of starting player for each board
@@ -304,10 +312,10 @@ def desired_probabilities_batch(start_boards, model):
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
-                    results[board_index][i] = 10
+                    results[board_index][i] = large_increment
                 elif result == -1:
                     # if the game was immediately lost, we have a 100% loss rate in that column
-                    results[board_index][i] = -10
+                    results[board_index][i] = -large_increment
             # copy this board into the main boards list a number of times equal to trials
             for k in range(trials):
                 board_list.append(copy.deepcopy(board))
@@ -444,38 +452,31 @@ def get_training_data(samples):
 # returns the target data (desired probabilities) for each of the samples in the list
 # expects a list of boards serving as the samples to get data from, and a tensorflow neural network model
 def get_target_data(samples, model):
-    # store the data
-    target_data = []
-    # iterate through the samples, and get the desired probabilities for each
-    for s in samples:
-        target_data += [s.desired_probabilities(model)]
-    # convert to a tensorflow tensor, which works better with the model
-    return tf.constant(target_data)
+    return tf.constant(desired_probabilities_batch(samples, model))
 
 
-# by default, returns the average euclidean distance between desired_probabilities and model output between the elements
+# by default, returns the average euclidean distance between two sets given
+# two sets are expected to be desired probabilities of a set of boards and corresponding actual outputs
+# boards is the corresponding boards, to be printed in some report types
 # different values of report_type cause different things to be printed IN ADDITION to returning the distance
 # report_type = 0 -> nothing is printed
 # report_type = 1 -> average distance is printed
 # report_type = 2 -> the distances for individual boards are printed (as well as average)
 # report_type = 3 -> the boards themselves and their vectors are printed (as well as all of the above)
-def evaluate(samples, model, report_type=0):
+def evaluate(actual_prob, des_prob, boards, report_type=0):
+    des_prob = tf.dtypes.cast(des_prob, tf.float32)
     # print the title bar if appropriate
     if report_type >= 1:
         print("=" * 28, "SAMPLE EVALUATION", "=" * 28)
         print()
     # keep track of the distances to find the average
     total_distance = 0
-    for i in range(len(samples)):
-        # get a the next board
-        s = samples[i]
-        # get the raw data; call the model
-        board_data = [np.array(s.get_boards()[0] + s.get_boards()[1] + s.get_boards()[2])]
-        x = model(np.stack(board_data), training=False)
-        # get the desired probabilities
-        y = s.desired_probabilities(model)
+    for i in range(len(boards)):
+        # get the data for the next board
+        x = actual_prob[i]
+        y = des_prob[i]
         # determine the Euclidean distance
-        distance = np.linalg.norm(x[0] - y)
+        distance = np.linalg.norm(x - y)
         # add it to the total (will be used for the average
         total_distance += distance
         # print the appropriate data
@@ -483,15 +484,15 @@ def evaluate(samples, model, report_type=0):
             print("-" * 33, "Board", i + 1, "-" * 33)
             print()
         if report_type >= 3:
-            print(samples[i])
-            print("Actual data:", vector_string(x[0]))
+            print(boards[i])
+            print("Actual data:", vector_string(x))
             print("Target data:", vector_string(y))
             print()
         if report_type >= 2:
             print("Euclidean distance between target and actual:", "{:.4f}".format(distance))
             print()
     # divide the total by the number of samples to get the average distance
-    average_distance = total_distance / len(samples)
+    average_distance = total_distance / len(boards)
     # print the average if applicable
     if report_type >= 1:
         print("*" * 20, "Average Euclidean distance:", "{:.4f}".format(average_distance), "*" * 20)
@@ -581,3 +582,7 @@ def is_win(board):
             return True
     # return false if no win was found
     return False
+
+
+def set_trials(t):
+    GameBoard.game_trials = t
