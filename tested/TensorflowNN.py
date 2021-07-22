@@ -22,23 +22,23 @@ trials = 10
 
 # alternate parameters for testing mode
 if testing:
-    set_size = 3
-    training_cycles = 20
-    b_size = 3
-    eps = 3
+    set_size = 1000
+    training_cycles = 50
+    b_size = 100
+    eps = 100
     trials = 10
 
 # keep track of average euclidean distances
 avg_dist = []
 
 # amount of detail the evaluation method should give; levels of depth explained above the function
-evaluation_depth = 1
+evaluation_depth = 0
 
 # set the number of trials for the GameBoard class
 gameBoard.set_trials(trials)
 
 # the set that will be used to evaluate the euclidean distance
-eval_set = gameBoard.get_samples(10)
+eval_set = gameBoard.get_samples(10, model)
 # display the evaluation set
 print("Set of boards used for evaluation:")
 for b in eval_set:
@@ -53,7 +53,7 @@ for i in range(training_cycles):
     # loop information
     print("Outer loop:", i + 1, "/", training_cycles)
     # get a new set of boards for testing
-    boards = gameBoard.get_samples(set_size)
+    boards = gameBoard.get_samples(set_size, model)
     # get the training data for the new boards and the evaluation set
     training = gameBoard.get_training_data(np.append(boards, eval_set))
     # get the target data for the new boards and the evaluation set
