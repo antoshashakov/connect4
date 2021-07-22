@@ -16,22 +16,29 @@ class GameBoard:
     # expects number of pieces (optional; default is random), board lists (optional),
     # and whether we want to be one move away from a win (optional)
     def __init__(self, pieces=-1, game_boards=None, near_win=False):
-        # track whether we have found a win, for near-win games
-        self.found_win = False
         # case for when we pass a board
         if game_boards is not None:
             self.game_boards = game_boards
             self.pieces = count_pieces(self.game_boards)
             self.player_turn = self.pieces % 2
             return
+        # subsequent cases simulate a game which requires a game board
         # boards for player 1, player 2, and placeable positions respectively
-        self.game_boards = [[0] * 42, [0] * 42, [(1 if i < 7 else 0) for i in range(42)]]
-
+        self.game_boards = [[0 for _ in range(42)], [0 for _ in range(42)], [(1 if i < 7 else 0) for i in range(42)]]
+        # track whether we have found a win, for near-win games
+        self.found_win = False
+        # player turn
+        self.player_turn = 0
+        # randomize the piece count if -1 is entered; otherwise set to entered value
+        if pieces == -1:
+            self.pieces = rand.randrange(42)
+        else:
+            self.pieces = pieces
         # case for creating a board that is one move away from a win
         if near_win:
             # plays a random game until we fail to place a piece
             for i in range(42):
-                self.place_random(i % 2, near_win)
+                self.place_random(near_win)
                 # if we are one move away from a win, stop placing pieces.
                 if self.found_win:
                     self.pieces = i
@@ -39,58 +46,67 @@ class GameBoard:
                     return
         # creating a fully random board
         else:
-            # sets pieces to a random amount if -1 is entered
-            if pieces == -1:
-                self.pieces = rand.randrange(42)
-            # otherwise sets pieces to pieces
-            else:
-                self.pieces = pieces
             # generate the board based on the number of pieces:
             if GameBoard.debug_messages:
                 print("Attempting to place " + str(self.pieces) + " pieces.")
             # simulating a random game where some amount of moves are played and nobody has won yet
             for i in range(self.pieces):
-                self.place_random(i % 2)
-            # instance variable for which player will place a piece next
-            self.player_turn = self.pieces % 2
+                self.place_random()
             if GameBoard.debug_messages:
                 print("Managed to place " + str(self.pieces) + " pieces.")
 
     # simulates a random move
     # never returns a game with four in a row
-    # expects the number of the board (1 or 2), depending on which player is making a move,
-    # and whether we want to be one move away from a win (optional)
-    def place_random(self, board_num, near_win=False):
+    # expects whether we want to be one move away from a win (optional)
+    def place_random(self, near_win=False):
         # repeatedly attempt to place a piece
         # 15 is arbitrary here, a high value will ensure less "missed" pieces
         for i in range(15):
             # pick a random column
-            col = rand.randrange(7)
-            # ensure the column is a valid move
-            if self.valid_move(col):
-                # find the row where the piece will fall
-                row = self.find_row(col)
-                # temporary board to use is.win with without altering the original board
-                temp_board = self.game_boards[board_num].copy()
-                temp_board[7 * row + col] = 1
-                # check to see if the move in question would win the game (which we don't want)
-                if not (is_win(temp_board)):
-                    # adjust the real board
-                    self.game_boards[board_num][7 * row + col] = 1
-                    self.game_boards[2][7 * row + col] = 0
-                    # if we are not on the top row, adjust the board representing available moves
-                    if not (row == 5):
-                        self.game_boards[2][7 * (row + 1) + col] = 1
-                    return
-                # if we are generating a GameBoard that we want to be one move away from a move, we are done
-                if near_win:
-                    self.found_win = True
-                    return
+            col = rand.randint(0, 6)
+            # attempt to play the move, ensuring that the game does not end
+            flag = self.play_move_ensure_no_win(col, near_win)
+            # if we placed a piece
+            if flag == 1:
+                return
+            # if we were a single move from a win
+            if flag == 2:
+                self.found_win = True
+                return
         if GameBoard.debug_messages:
             print(" > Could not place a piece.")
         # if we failed to place a piece, decrease the number of pieces by 1
         self.pieces -= 1
         return
+
+    def set_pieces(self, pieces):
+        self.pieces = pieces
+
+    def set_player_turn(self, player_turn):
+        self.player_turn = player_turn
+
+    def play_move_ensure_no_win(self, col, near_win):
+        # see if the given move is valid
+        if self.valid_move(col):
+            row = self.find_row(col)
+            # create a temp board to see if the given move is a win
+            temp_board = self.game_boards[self.player_turn].copy()
+            temp_board[(7 * row) + col] = 1
+            # if it is a win, do not play it
+            if not (is_win(temp_board)):
+                # update game_boards
+                self.game_boards[self.player_turn][(7 * row) + col] = 1
+                self.game_boards[2][(7 * row) + col] = 0
+                self.player_turn = (self.player_turn + 1) % 2
+                if not (row == 5):
+                    self.game_boards[2][7*(row+1) + col] = 1
+                # if we place the piece, return 1
+                return 1
+            # return 2 if we are looking for boards that are one move away from a win
+            if near_win:
+                return 2
+        # if, for whatever reason, we did not place the piece, return -1
+        return -1
 
     # checks to see if there is an open slot in the given column of the board
     # expects the number of the column (0 to 6)
@@ -423,7 +439,7 @@ def count_pieces(boards):
 
 # gives an array of random boards with the given size
 # expects a natural number for set_size, which represents the number of boards generated
-def get_samples(set_size):
+def get_samples_old(set_size):
     # store the boards
     boards = []
     # generate a number of random boards equal to the set size
@@ -433,6 +449,21 @@ def get_samples(set_size):
         if GameBoard.debug_messages:
             print(boards[i])
     # change the list to a numpy array
+    return np.array(boards)
+
+
+# gives an array of random boards, generated using the simulate_with_model_assistance method
+# expects the size of the set to return, and the model used to generate the boards
+def get_samples(set_size, model):
+    # store the blank boards to feed to the other method
+    blank_boards = [GameBoard(0) for _ in range(set_size)]
+    # feed the boards and model into the method
+    boards = simulate_with_model_assistance(blank_boards, model)
+    # print the boards if applicable
+    if GameBoard.debug_messages:
+        print("The sample of boards is as follows:")
+        for b in boards:
+            print(b)
     return np.array(boards)
 
 
@@ -586,3 +617,47 @@ def is_win(board):
 
 def set_trials(t):
     GameBoard.game_trials = t
+
+
+# takes in a list of empty gameBoard objects and simulates a random game on each of them simultaneously
+# each move on each gameBoard has some probability to (model_play_probability) to play a model suggested move
+def simulate_with_model_assistance(boards=None, model=None, model_play_probability=0.2, pieces=None):
+    # input validation
+    if pieces is None:
+        pieces = []
+    if (boards is None) or (model is None):
+        print("you must supply a model AND a set of empty boards to start")
+        return
+    # if we don't have a piece count for each board passed, we assign a piece count to each board here
+    if (not pieces) or (not (len(pieces) == len(boards))):
+        for i in range(len(boards)):
+            pieces.append(rand.randrange(0, 42))
+    # tell each board that we want it to have however many piece we decided above
+    for i in range(len(boards)):
+        boards[i].set_pieces(pieces[i])
+    # simulate random games simultaneously
+    for i in range(max(pieces)):
+        # first we ask the model what move it would play on each board
+        board_data = []
+        for board in boards:
+            board_data.append(np.array(board.get_boards()[0] + board.get_boards()[1] + board.get_boards()[2]))
+        move_list = tf.math.argmax(model(np.stack(board_data), training=False), axis=1, output_type=tf.int32).numpy()
+        # loop through each board and play the move that we want to play
+        for j in range(len(boards)):
+            # ask if we are going to place a piece on the given board
+            if i <= boards[j].get_pieces():
+                # ask if we are going to play a model suggested move or a random move
+                # play the model suggested move
+                if rand.random() <= model_play_probability:
+                    col = move_list[j]
+                    flag = boards[j].play_move_ensure_no_win(col, near_win=False)
+                    # if we did not place a piece
+                    if flag == -1:
+                        boards[j].set_pieces(boards[j].get_pieces() - 1)
+                else:
+                    # play random move
+                    boards[j].place_random()
+    # readjust player turns in case they are incorrect
+    for i in range(len(boards)):
+        boards[i].set_player_turn(boards[i].get_pieces() % 2)
+    return boards
