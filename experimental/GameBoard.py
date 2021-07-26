@@ -7,27 +7,38 @@ import numpy as np
 class GameBoard:
     # class-wide variable dictating whether debug print statements are called
     debug_messages = False
+    # number of trials used in the desired probabilities methods
+    game_trials = 10
+    # the "value" of instant win / loss in desired probabilities methods
+    instant_end_increment = 10
 
     # generates a board based on the given information
     # expects number of pieces (optional; default is random), board lists (optional),
     # and whether we want to be one move away from a win (optional)
     def __init__(self, pieces=-1, game_boards=None, near_win=False):
-        # track whether we have found a win, for near-win games
-        self.found_win = False
         # case for when we pass a board
         if game_boards is not None:
             self.game_boards = game_boards
             self.pieces = count_pieces(self.game_boards)
             self.player_turn = self.pieces % 2
             return
+        # subsequent cases simulate a game which requires a game board
         # boards for player 1, player 2, and placeable positions respectively
-        self.game_boards = [[0] * 42, [0] * 42, [(1 if i < 7 else 0) for i in range(42)]]
-
+        self.game_boards = [[0 for _ in range(42)], [0 for _ in range(42)], [(1 if i < 7 else 0) for i in range(42)]]
+        # track whether we have found a win, for near-win games
+        self.found_win = False
+        # player turn
+        self.player_turn = 0
+        # randomize the piece count if -1 is entered; otherwise set to entered value
+        if pieces == -1:
+            self.pieces = rand.randrange(42)
+        else:
+            self.pieces = pieces
         # case for creating a board that is one move away from a win
         if near_win:
             # plays a random game until we fail to place a piece
             for i in range(42):
-                self.place_random(i % 2, near_win)
+                self.place_random(near_win)
                 # if we are one move away from a win, stop placing pieces.
                 if self.found_win:
                     self.pieces = i
@@ -35,58 +46,67 @@ class GameBoard:
                     return
         # creating a fully random board
         else:
-            # sets pieces to a random amount if -1 is entered
-            if pieces == -1:
-                self.pieces = rand.randrange(42)
-            # otherwise sets pieces to pieces
-            else:
-                self.pieces = pieces
             # generate the board based on the number of pieces:
             if GameBoard.debug_messages:
                 print("Attempting to place " + str(self.pieces) + " pieces.")
             # simulating a random game where some amount of moves are played and nobody has won yet
             for i in range(self.pieces):
-                self.place_random(i % 2)
-            # instance variable for which player will place a piece next
-            self.player_turn = self.pieces % 2
+                self.place_random()
             if GameBoard.debug_messages:
                 print("Managed to place " + str(self.pieces) + " pieces.")
 
     # simulates a random move
     # never returns a game with four in a row
-    # expects the number of the board (1 or 2), depending on which player is making a move,
-    # and whether we want to be one move away from a win (optional)
-    def place_random(self, board_num, near_win=False):
+    # expects whether we want to be one move away from a win (optional)
+    def place_random(self, near_win=False):
         # repeatedly attempt to place a piece
         # 15 is arbitrary here, a high value will ensure less "missed" pieces
         for i in range(15):
             # pick a random column
-            col = rand.randrange(7)
-            # ensure the column is a valid move
-            if self.valid_move(col):
-                # find the row where the piece will fall
-                row = self.find_row(col)
-                # temporary board to use is.win with without altering the original board
-                temp_board = self.game_boards[board_num].copy()
-                temp_board[7 * row + col] = 1
-                # check to see if the move in question would win the game (which we don't want)
-                if not (is_win(temp_board)):
-                    # adjust the real board
-                    self.game_boards[board_num][7 * row + col] = 1
-                    self.game_boards[2][7 * row + col] = 0
-                    # if we are not on the top row, adjust the board representing available moves
-                    if not (row == 5):
-                        self.game_boards[2][7 * (row + 1) + col] = 1
-                    return
-                # if we are generating a GameBoard that we want to be one move away from a move, we are done
-                if near_win:
-                    self.found_win = True
-                    return
+            col = rand.randint(0, 6)
+            # attempt to play the move, ensuring that the game does not end
+            flag = self.play_move_ensure_no_win(col, near_win)
+            # if we placed a piece
+            if flag == 1:
+                return
+            # if we were a single move from a win
+            if flag == 2:
+                self.found_win = True
+                return
         if GameBoard.debug_messages:
             print(" > Could not place a piece.")
         # if we failed to place a piece, decrease the number of pieces by 1
         self.pieces -= 1
         return
+
+    def set_pieces(self, pieces):
+        self.pieces = pieces
+
+    def set_player_turn(self, player_turn):
+        self.player_turn = player_turn
+
+    def play_move_ensure_no_win(self, col, near_win):
+        # see if the given move is valid
+        if self.valid_move(col):
+            row = self.find_row(col)
+            # create a temp board to see if the given move is a win
+            temp_board = self.game_boards[self.player_turn].copy()
+            temp_board[(7 * row) + col] = 1
+            # if it is a win, do not play it
+            if not (is_win(temp_board)):
+                # update game_boards
+                self.game_boards[self.player_turn][(7 * row) + col] = 1
+                self.game_boards[2][(7 * row) + col] = 0
+                self.player_turn = (self.player_turn + 1) % 2
+                if not (row == 5):
+                    self.game_boards[2][7*(row+1) + col] = 1
+                # if we place the piece, return 1
+                return 1
+            # return 2 if we are looking for boards that are one move away from a win
+            if near_win:
+                return 2
+        # if, for whatever reason, we did not place the piece, return -1
+        return -1
 
     # checks to see if there is an open slot in the given column of the board
     # expects the number of the column (0 to 6)
@@ -181,7 +201,9 @@ class GameBoard:
     # expects a tensorflow neural network model with the correct input and output size and format
     def desired_probabilities(self, model):
         # number of games we will test
-        trials = 10
+        trials = GameBoard.game_trials
+        # large increment for instant win / loss
+        large_increment = GameBoard.instant_end_increment
         # the maximum number of moves (42 <=> no limit)
         move_limit = 42 - self.pieces
         # all of the many boards that we will work with
@@ -189,13 +211,13 @@ class GameBoard:
         # keep track of starting player
         player = self.player_turn
         # the overall stats for each of the seven initial moves
-        results = [float(0)] * 7
+        results = [float(0) for _ in range(7)]
         # keep track of which of the seven initial moves immediately ended the game
-        immediate_end = [False] * 7
+        immediate_end = [False for _ in range(7)]
         # the stats of the random games; 2D, to track wins and losses for each
-        stats = [[0, 0]] * 7
+        stats = [[0, 0] for _ in range(7)]
         # keep track of which boards no longer need to be played on
-        finished = [False] * (trials * 7)
+        finished = [False for _ in range(trials * 7)]
         # for each number 1 to 7, we play a move in that column and determine how useful that move is
         for i in range(7):
             # copy the board to not harm the original
@@ -215,15 +237,18 @@ class GameBoard:
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
-                    results[i] = 10
+                    results[i] = large_increment
                 elif result == -1:
                     # if the game was immediately lost, we have a 100% loss rate in that column
-                    results[i] = -10
+                    results[i] = -large_increment
             # copy this board into the main boards list a number of times equal to trials
             for k in range(trials):
                 board_list.append(copy.deepcopy(board))
+        # keep track of the number of moves made; corresponds to immediacy of win / loss
+        moves_made = 0
         # repeat as many moves as we are allowed
         for i in range(move_limit):
+            moves_made += 1
             # store all of the raw board outputs to be fed to the model
             board_data = []
             # concatenate all of these as one large tensor
@@ -244,11 +269,11 @@ class GameBoard:
                 # track the result and mark a finished board as finished
                 if (result == 1 and board_list[k].player_turn == player) or (
                         result == -1 and board_list[k].player_turn != player):
-                    stats[k // trials][0] += 1
+                    stats[k // trials][0] += large_increment / (2 * moves_made)
                     finished[k] = True
                 if (result == 1 and board_list[k].player_turn != player) or (
                         result == -1 and board_list[k].player_turn == player):
-                    stats[k // trials][1] += 1
+                    stats[k // trials][1] += large_increment / (2 * moves_made)
                     finished[k] = True
                 if board_list[k].get_pieces() >= 42:
                     finished[k] = True
@@ -269,23 +294,21 @@ def desired_probabilities_batch(start_boards, model):
     # the length of the input
     length = len(start_boards)
     # number of games we will test
-    trials = 10
+    trials = GameBoard.game_trials
+    # large increment for instant win / loss
+    large_increment = GameBoard.instant_end_increment
     # all of the many boards that we will work with
     board_list = []
     # keep track of starting player for each board
     player = [b.player_turn for b in start_boards]
     # the overall stats for each of the seven initial moves for each of the initial boards
-    # results = [[0 for i in range(7)] for b in start_boards]
-    results = [[float(0)] * 7] * len(start_boards)
+    results = [[float(0) for _ in range(7)] for _ in start_boards]
     # keep track of which of the seven initial moves immediately ended the game
-    # immediate_end = [[False for i in range(7)] for b in start_boards]
-    immediate_end = [[False] * 7] * len(start_boards)
+    immediate_end = [[False for _ in range(7)] for _ in start_boards]
     # the stats of the random games; 2D, to track wins and losses for each
-    # stats = [[[0, 0] for i in range(7)] for b in start_boards]
-    stats = [[[0, 0]] * 7] * len(start_boards)
+    stats = [[[0, 0] for _ in range(7)] for _ in start_boards]
     # keep track of which boards no longer need to be played on
-    # finished = [False for i in range(trials * 7 * length)]
-    finished = [False] * (trials * 7 * length)
+    finished = [False for _ in range(trials * 7 * length)]
     # for each of the starting boards...
     board_index = 0
     for b in start_boards:
@@ -308,16 +331,19 @@ def desired_probabilities_batch(start_boards, model):
                 # adjust the stats based on the result of the move if applicable
                 if result == 1:
                     # if the game was immediately won, we have a 100% win rate in that column
-                    results[board_index][i] = 10
+                    results[board_index][i] = large_increment
                 elif result == -1:
                     # if the game was immediately lost, we have a 100% loss rate in that column
-                    results[board_index][i] = -10
+                    results[board_index][i] = -large_increment
             # copy this board into the main boards list a number of times equal to trials
             for k in range(trials):
                 board_list.append(copy.deepcopy(board))
         board_index += 1
+    # keep track of the number of moves made; corresponds to the immediacy of given win or loss
+    moves_made = 0
     # repeat as many moves as we are allowed
     for i in range(42):
+        moves_made += 1
         # store all of the raw board outputs to be fed to the model
         board_data = []
         # concatenate all of these as one large tensor
@@ -340,11 +366,11 @@ def desired_probabilities_batch(start_boards, model):
                 # track the result and mark a finished board as finished
                 if (result == 1 and board_list[(j * trials * 7) + k].player_turn == player[j]) or (
                         result == -1 and board_list[(j * trials * 7) + k].player_turn != player[j]):
-                    stats[j][k // trials][0] += 1
+                    stats[j][k // trials][0] += large_increment / (2 * moves_made)
                     finished[(j * trials * 7) + k] = True
                 if (result == 1 and board_list[(j * trials * 7) + k].player_turn != player[j]) or (
                         result == -1 and board_list[(j * trials * 7) + k].player_turn == player[j]):
-                    stats[j][k // trials][1] += 1
+                    stats[j][k // trials][1] += large_increment / (2 * moves_made)
                     finished[(j * trials * 7) + k] = True
                 if board_list[(j * trials * 7) + k].get_pieces() >= 42:
                     finished[(j * trials * 7) + k] = True
@@ -373,9 +399,9 @@ def soft_max(arr1):
 # expects arr1 to represent a set of percentage chances (it should be composed of positive real numbers with a sum of 1)
 def pick_probability(arr1):
     # generate a random number from 0 to 1
-    # rand.seed(2.718281828459045)  # used for testing purposes
+    rand.seed(2.718281828459045)  # used for testing purposes
     r = rand.random()
-    rand.seed()
+    # rand.seed()
     # total to keep track of the range we will check
     total = 0
     # we check if our number is in the range from 0 to the first probability, then between the first and second,
@@ -419,7 +445,7 @@ def count_pieces(boards):
 
 # gives an array of random boards with the given size
 # expects a natural number for set_size, which represents the number of boards generated
-def get_samples(set_size):
+def get_samples_old(set_size):
     # store the boards
     boards = []
     # generate a number of random boards equal to the set size
@@ -429,6 +455,21 @@ def get_samples(set_size):
         if GameBoard.debug_messages:
             print(boards[i])
     # change the list to a numpy array
+    return np.array(boards)
+
+
+# gives an array of random boards, generated using the simulate_with_model_assistance method
+# expects the size of the set to return, and the model used to generate the boards
+def get_samples(set_size, model):
+    # store the blank boards to feed to the other method
+    blank_boards = [GameBoard(0) for _ in range(set_size)]
+    # feed the boards and model into the method
+    boards = simulate_with_model_assistance(blank_boards, model)
+    # print the boards if applicable
+    if GameBoard.debug_messages:
+        print("The sample of boards is as follows:")
+        for b in boards:
+            print(b)
     return np.array(boards)
 
 
@@ -448,38 +489,31 @@ def get_training_data(samples):
 # returns the target data (desired probabilities) for each of the samples in the list
 # expects a list of boards serving as the samples to get data from, and a tensorflow neural network model
 def get_target_data(samples, model):
-    # store the data
-    target_data = []
-    # iterate through the samples, and get the desired probabilities for each
-    for s in samples:
-        target_data += [s.desired_probabilities(model)]
-    # convert to a tensorflow tensor, which works better with the model
-    return tf.constant(target_data)
+    return tf.constant(desired_probabilities_batch(samples, model))
 
 
-# by default, returns the average euclidean distance between desired_probabilities and model output between the elements
+# by default, returns the average euclidean distance between two sets given
+# two sets are expected to be desired probabilities of a set of boards and corresponding actual outputs
+# boards is the corresponding boards, to be printed in some report types
 # different values of report_type cause different things to be printed IN ADDITION to returning the distance
 # report_type = 0 -> nothing is printed
 # report_type = 1 -> average distance is printed
 # report_type = 2 -> the distances for individual boards are printed (as well as average)
 # report_type = 3 -> the boards themselves and their vectors are printed (as well as all of the above)
-def evaluate(samples, model, report_type=0):
+def evaluate(actual_prob, des_prob, boards, report_type=0):
+    des_prob = tf.dtypes.cast(des_prob, tf.float32)
     # print the title bar if appropriate
     if report_type >= 1:
         print("=" * 28, "SAMPLE EVALUATION", "=" * 28)
         print()
     # keep track of the distances to find the average
     total_distance = 0
-    for i in range(len(samples)):
-        # get a the next board
-        s = samples[i]
-        # get the raw data; call the model
-        board_data = [np.array(s.get_boards()[0] + s.get_boards()[1] + s.get_boards()[2])]
-        x = model(np.stack(board_data), training=False)
-        # get the desired probabilities
-        y = s.desired_probabilities(model)
+    for i in range(len(boards)):
+        # get the data for the next board
+        x = actual_prob[i]
+        y = des_prob[i]
         # determine the Euclidean distance
-        distance = np.linalg.norm(x[0] - y)
+        distance = np.linalg.norm(x - y)
         # add it to the total (will be used for the average
         total_distance += distance
         # print the appropriate data
@@ -487,15 +521,15 @@ def evaluate(samples, model, report_type=0):
             print("-" * 33, "Board", i + 1, "-" * 33)
             print()
         if report_type >= 3:
-            print(samples[i])
-            print("Actual data:", vector_string(x[0]))
+            print(boards[i])
+            print("Actual data:", vector_string(x))
             print("Target data:", vector_string(y))
             print()
         if report_type >= 2:
             print("Euclidean distance between target and actual:", "{:.4f}".format(distance))
             print()
     # divide the total by the number of samples to get the average distance
-    average_distance = total_distance / len(samples)
+    average_distance = total_distance / len(boards)
     # print the average if applicable
     if report_type >= 1:
         print("*" * 20, "Average Euclidean distance:", "{:.4f}".format(average_distance), "*" * 20)
@@ -585,3 +619,51 @@ def is_win(board):
             return True
     # return false if no win was found
     return False
+
+
+def set_trials(t):
+    GameBoard.game_trials = t
+
+
+# takes in a list of empty gameBoard objects and simulates a random game on each of them simultaneously
+# each move on each gameBoard has some probability to (model_play_probability) to play a model suggested move
+def simulate_with_model_assistance(boards=None, model=None, model_play_probability=0.2, pieces=None):
+    # input validation
+    if pieces is None:
+        pieces = []
+    if (boards is None) or (model is None):
+        print("you must supply a model AND a set of empty boards to start")
+        return
+    # if we don't have a piece count for each board passed, we assign a piece count to each board here
+    if (not pieces) or (not (len(pieces) == len(boards))):
+        for i in range(len(boards)):
+            pieces.append(rand.randrange(0, 42))
+    # tell each board that we want it to have however many piece we decided above
+    for i in range(len(boards)):
+        boards[i].set_pieces(pieces[i])
+    # simulate random games simultaneously
+    for i in range(max(pieces)):
+        # first we ask the model what move it would play on each board
+        board_data = []
+        for board in boards:
+            board_data.append(np.array(board.get_boards()[0] + board.get_boards()[1] + board.get_boards()[2]))
+        move_list = tf.math.argmax(model(np.stack(board_data), training=False), axis=1, output_type=tf.int32).numpy()
+        # loop through each board and play the move that we want to play
+        for j in range(len(boards)):
+            # ask if we are going to place a piece on the given board
+            if i <= boards[j].get_pieces():
+                # ask if we are going to play a model suggested move or a random move
+                # play the model suggested move
+                if rand.random() <= model_play_probability:
+                    col = move_list[j]
+                    flag = boards[j].play_move_ensure_no_win(col, near_win=False)
+                    # if we did not place a piece
+                    if flag == -1:
+                        boards[j].set_pieces(boards[j].get_pieces() - 1)
+                else:
+                    # play random move
+                    boards[j].place_random()
+    # readjust player turns in case they are incorrect
+    for i in range(len(boards)):
+        boards[i].set_player_turn(boards[i].get_pieces() % 2)
+    return boards
