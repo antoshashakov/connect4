@@ -2,6 +2,11 @@ import numpy as np
 from pprint import pprint
 import matplotlib.pyplot as plt
 
+# Python program to print
+# colored text and background
+def prRed(skk): print("\033[91m {}\033[00m" .format(skk))
+def prGreen(skk): print("\033[92m {}\033[00m" .format(skk))
+
 class Network:
     # Constructor with parameter sizes is a list of number of nodes for each layer,
     # parameter weights is a list of numpy arrays for weight matrices,
@@ -57,8 +62,9 @@ class Network:
     # Train the model with added clone node and
     # training_data is a list of tuples (x, y) representing the training inputs and the desired outputs,
     # epochs is the number of epochs, lr is the learning rate,
-    # clone_layer and original_pos are the layer and the node position of the original node that we clone a node from
-    def train_model_with_clone(self, training_data, epochs, lr, clone_layer, original_pos):
+    # clone_list is a list of tuples where each tuple is of form (clone_layer, original_pos, new_pos) where
+    # clone_layer is the layer of cloning, and original_pos and new_pos are the original and new nodes
+    def train_model_with_clone(self, training_data, epochs, lr, clone_list):
         # Create a 'losses' list to store loss value after each epoch,
         # which is then returned by the function in order to plot loss function
         losses = []
@@ -77,28 +83,30 @@ class Network:
                 # Update loss value
                 loss += (self.get_predicted_output(x) - y) ** 2
 
-                # Set partial derivatives with respect to weights and bias of the original node to be zero
-                # when its auxiliary partial derivative is less than zero
-                if d_a[clone_layer - 2][original_pos - 1] < 0:
-                    # Set bias of the original node to zero
-                    d_b[clone_layer - 2][original_pos - 1] = 0
-                    # Set weights of the original node in input weight matrix to zero
-                    for c in range(d_w[clone_layer - 2].shape[1]):
-                        d_w[clone_layer - 2][original_pos - 1][c] = 0
-                    # Set weights of the original node in output weight matrix to zero
-                    for r in range(d_w[clone_layer - 1].shape[0]):
-                        d_w[clone_layer - 1][r][original_pos - 1] = 0
-                # Set partial derivatives with respect to weights and bias of the new node to be zero
-                # when its auxiliary partial derivative is more than zero
-                if d_a[clone_layer - 2][-1] > 0:
-                    # Set bias of the new node to zero
-                    d_b[clone_layer - 2][-1] = 0
-                    # Set weights of the new node in input weight matrix to zero
-                    for c in range(d_w[clone_layer - 2].shape[1]):
-                        d_w[clone_layer - 2][-1][c] = 0
-                    # Set weights of the new node in output weight matrix to zero
-                    for r in range(d_w[clone_layer - 1].shape[0]):
-                        d_w[clone_layer - 1][r][-1] = 0
+                # Loop through each pair of copied nodes to update the nodes accordingly
+                for clone_layer, original_pos, new_pos in clone_list:
+                    # Set partial derivatives with respect to weights and bias of the original node to be zero
+                    # when its auxiliary partial derivative is less than zero
+                    if d_a[clone_layer - 2][original_pos - 1] < 0:
+                        # Set bias of the original node to zero
+                        d_b[clone_layer - 2][original_pos - 1] = 0
+                        # Set weights of the original node in input weight matrix to zero
+                        for c in range(d_w[clone_layer - 2].shape[1]):
+                            d_w[clone_layer - 2][original_pos - 1][c] = 0
+                        # Set weights of the original node in output weight matrix to zero
+                        for r in range(d_w[clone_layer - 1].shape[0]):
+                            d_w[clone_layer - 1][r][original_pos - 1] = 0
+                    # Set partial derivatives with respect to weights and bias of the new node to be zero
+                    # when its auxiliary partial derivative is more than zero
+                    if d_a[clone_layer - 2][new_pos-1] > 0:
+                        # Set bias of the new node to zero
+                        d_b[clone_layer - 2][new_pos-1] = 0
+                        # Set weights of the new node in input weight matrix to zero
+                        for c in range(d_w[clone_layer - 2].shape[1]):
+                            d_w[clone_layer - 2][new_pos-1][c] = 0
+                        # Set weights of the new node in output weight matrix to zero
+                        for r in range(d_w[clone_layer - 1].shape[0]):
+                            d_w[clone_layer - 1][r][new_pos-1] = 0
                 # Add the derivatives of cost function for the current training example
                 # to the list of the derivatives of full cost function,
                 # which are then later divided by the number of training examples when updating weights and biases
@@ -158,7 +166,8 @@ class Network:
             if i > 2:
                 d_a[-i+1] = np.dot(np.array(self.weights[-i+1]).transpose(), d_b[-i+1])
         return d_b, d_w, d_a
-    # Make a new clone node from a given node at a layer
+
+    # Make a new clone node from a given node at a layer, and return position of new node
     def make_clone_node(self, layer, node_pos):
         # Update size of the model
         self.sizes[layer-1] += 1
@@ -175,7 +184,7 @@ class Network:
         # of the original weight matrix
         self.weights[layer-1] = np.concatenate((self.weights[layer-1],temp), axis=1)
         # Update the values of the original node's column, which means divide the numbers by 2
-        self.weights[layer-1][:, [node_pos - 1]] /= 2
+        self.weights[layer-1][:, [node_pos - 1]] = self.weights[layer-1][:, [node_pos - 1]]/2
         # Fill the right-most column values same as the values of the original node's column
         self.weights[layer-1][:, [-1]] = self.weights[layer-1][:, [node_pos - 1]]
 
@@ -184,6 +193,8 @@ class Network:
         self.biases[layer-2].resize((1+ self.biases[layer-2].shape[0],  self.biases[layer-2].shape[1]))
         # Fill the bottom row with value same as the value of the original node's row
         self.biases[layer - 2][-1] = self.biases[layer - 2][node_pos-1]
+        # Return new node's position
+        return self.sizes[layer-1]
 
     # Return a node in a layer that is required the largest difference in training data's auxiliary partial derivative
     def get_most_change(self, training_data):
@@ -250,6 +261,30 @@ class Network:
             da.append(d_a)
         return da
 
+    # Return a list of partial derivatives of cost function w.r.t biases of the given input data
+    def get_db(self, input_data):
+        # A list to stores all partial derivatives of cost function w.r.t biases of the given input data
+        db = []
+        # Iterate through each training example
+        for x, y in input_data:
+            # Get the derivative of the example cost function with respect to bias, weight,
+            # and activation respectively after applying back propagation to the training example
+            d_b, d_w, d_a = self.back_propagation(x, y)
+            db.append(d_b)
+        return db
+
+    # Return a list of partial derivatives of cost function w.r.t weights of the given input data
+    def get_dw(self, input_data):
+        # A list to stores all partial derivatives of cost function w.r.t weights of the given input data
+        dw = []
+        # Iterate through each training example
+        for x, y in input_data:
+            # Get the derivative of the example cost function with respect to bias, weight,
+            # and activation respectively after applying back propagation to the training example
+            d_b, d_w, d_a = self.back_propagation(x, y)
+            dw.append(d_w)
+        return dw
+
 #### Helper functions
 
 # Sigmoid function
@@ -275,57 +310,90 @@ training_input = [([[0,0]], 0), ([[0,1]], 1), ([[1, 0]], 1), ([[1, 1]], 0)]
 model = Network([2, 2, 1], [np.array([[ 4, -6 ],
        [ -4,  -5]]), np.array([[4, -4]])],[np.array([[-3],
        [ 0.5]]), np.array([[0]])])
-print("Initial model")
+prRed("Initial model")
 print("Model's prediction for [0,0]:")
-print("{:.4f}".format(model.get_predicted_output([[0,0]])))
+prGreen("{:.4f}".format(model.get_predicted_output([[0,0]])))
 print("Model's prediction for [0,1]:")
-print("{:.4f}".format(model.get_predicted_output([[0,1]])))
+prGreen("{:.4f}".format(model.get_predicted_output([[0,1]])))
 print("Model's prediction for [1,0]:")
-print("{:.4f}".format(model.get_predicted_output([[1,0]])))
+prGreen("{:.4f}".format(model.get_predicted_output([[1,0]])))
 print("Model's prediction for [1,1]:")
-print("{:.4f}".format(model.get_predicted_output([[1,1]])))
-print("Weights")
-pprint(model.weights)
-print("Biases")
-pprint(model.biases)
+prGreen("{:.4f}".format(model.get_predicted_output([[1,1]])))
+# print("Weights")
+# pprint(model.weights)
+# print("Biases")
+# pprint(model.biases)
 
-losses1 = model.train_model(training_input,10,0.4)
+# losses1 = model.train_model(training_input,50000,1)
 
 
-print("\nAfter training")
-print("Model's prediction for [0,0]:")
-print("{:.4f}".format(model.get_predicted_output([[0,0]])))
-print("Model's prediction for [0,1]:")
-print("{:.4f}".format(model.get_predicted_output([[0,1]])))
-print("Model's prediction for [1,0]:")
-print("{:.4f}".format(model.get_predicted_output([[1,0]])))
-print("Model's prediction for [1,1]:")
-print("{:.4f}".format(model.get_predicted_output([[1,1]])))
-print("Weights")
-pprint(model.weights)
-print("Biases")
-pprint(model.biases)
+# prRed("\nAfter training")
+# print("Model's prediction for [0,0]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[0,0]])))
+# print("Model's prediction for [0,1]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[0,1]])))
+# print("Model's prediction for [1,0]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[1,0]])))
+# print("Model's prediction for [1,1]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[1,1]])))
 # plot_loss_function(losses1)
+# print("Weights")
+# pprint(model.weights)
+# print("Biases")
+# pprint(model.biases)
 
-node_layer, node_position = model.get_most_change(training_input)
-model.make_clone_node(node_layer,node_position)
-print("\nAfter make clone")
+
+
+# node_layer, node_position = model.get_most_change(training_input)
+clone = model.make_clone_node(2,2)
+# # clone1 = model.make_clone_node(node_layer,node_position)
+# # clone2 = model.make_clone_node(2,1)
+# prRed("\nAfter make clone")
+# print("Model's prediction for [0,0]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[0,0]])))
+# print("Model's prediction for [0,1]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[0,1]])))
+# print("Model's prediction for [1,0]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[1,0]])))
+# print("Model's prediction for [1,1]:")
+# prGreen("{:.4f}".format(model.get_predicted_output([[1,1]])))
+# print("Weights")
+# pprint(model.weights)
+# print("Biases")
+# pprint(model.biases)
+# print("Sizes")
+# print(model.sizes)
+# print("\n Auxiliary partial derivatives")
+# pprint(model.get_da(training_input))
+# print("\n Partial derivatives w.r.t. biases")
+# pprint(model.get_db(training_input))
+# print("\n Partial derivatives w.r.t. weights")
+# pprint(model.get_dw(training_input))
+
+
+losses3 = model.train_model_with_clone(training_input, 400, 1, [(2,2,3)])
+prRed("\nAfter training")
 print("Model's prediction for [0,0]:")
-print("{:.4f}".format(model.get_predicted_output([[0,0]])))
+prGreen("{:.4f}".format(model.get_predicted_output([[0,0]])))
 print("Model's prediction for [0,1]:")
-print("{:.4f}".format(model.get_predicted_output([[0,1]])))
+prGreen("{:.4f}".format(model.get_predicted_output([[0,1]])))
 print("Model's prediction for [1,0]:")
-print("{:.4f}".format(model.get_predicted_output([[1,0]])))
+prGreen("{:.4f}".format(model.get_predicted_output([[1,0]])))
 print("Model's prediction for [1,1]:")
-print("{:.4f}".format(model.get_predicted_output([[1,1]])))
-print("Weights")
+prGreen("{:.4f}".format(model.get_predicted_output([[1,1]])))
+print("\nWeights")
 pprint(model.weights)
-print("Biases")
+print("\nBiases")
 pprint(model.biases)
-print("Sizes")
-print(model.sizes)
+print("\n Auxiliary partial derivatives")
+pprint(model.get_da(training_input))
+print("\n Partial derivatives w.r.t. biases")
+pprint(model.get_db(training_input))
+print("\n Partial derivatives w.r.t. weights")
+pprint(model.get_dw(training_input))
+plot_loss_function(losses3)
 
-# losses2 = model.train_model(training_input, 10000, 4)
+# losses4 = model.train_model(training_input, 1, 1)
 # print("\nAfter training")
 # print("Model's prediction for [0,0]:")
 # print("{:.4f}".format(model.get_predicted_output([[0,0]])))
@@ -339,40 +407,10 @@ print(model.sizes)
 # pprint(model.weights)
 # print("Biases")
 # pprint(model.biases)
-# plot_loss_function(losses2)
-
-losses3 = model.train_model_with_clone(training_input, 705, 4, node_layer, node_position)
-print("\nAfter training")
-print("Model's prediction for [0,0]:")
-print("{:.4f}".format(model.get_predicted_output([[0,0]])))
-print("Model's prediction for [0,1]:")
-print("{:.4f}".format(model.get_predicted_output([[0,1]])))
-print("Model's prediction for [1,0]:")
-print("{:.4f}".format(model.get_predicted_output([[1,0]])))
-print("Model's prediction for [1,1]:")
-print("{:.4f}".format(model.get_predicted_output([[1,1]])))
-print("\nWeights")
-pprint(model.weights)
-print("\nBiases")
-pprint(model.biases)
-print("\n Auxiliary partial derivatives")
-pprint(model.get_da(training_input))
-plot_loss_function(losses1+losses3)
-
-losses4 = model.train_model(training_input, 5000, 5)
-print("\nAfter training")
-print("Model's prediction for [0,0]:")
-print("{:.4f}".format(model.get_predicted_output([[0,0]])))
-print("Model's prediction for [0,1]:")
-print("{:.4f}".format(model.get_predicted_output([[0,1]])))
-print("Model's prediction for [1,0]:")
-print("{:.4f}".format(model.get_predicted_output([[1,0]])))
-print("Model's prediction for [1,1]:")
-print("{:.4f}".format(model.get_predicted_output([[1,1]])))
-print("Weights")
-pprint(model.weights)
-print("Biases")
-pprint(model.biases)
-print("\n Auxiliary partial derivatives")
-pprint(model.get_da(training_input))
-plot_loss_function(losses1+losses3+losses4)
+# print("\n Auxiliary partial derivatives")
+# pprint(model.get_da(training_input))
+# print("\n Partial derivatives w.r.t. biases")
+# pprint(model.get_db(training_input))
+# print("\n Partial derivatives w.r.t. weights")
+# pprint(model.get_dw(training_input))
+# plot_loss_function(losses4)
